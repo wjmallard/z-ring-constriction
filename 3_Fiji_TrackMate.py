@@ -21,7 +21,7 @@ from fiji.plugin.trackmate.features import FeatureFilter
 import os
 from glob import glob
 
-INPUT_PATTERN = 'test/*__registered.tif'
+INPUT_PATTERN = '*__registered.tif'
 
 DetectorSettings = {
     'TARGET_CHANNEL': 1,
@@ -224,4 +224,6 @@ def run_TrackMate(filename):
 stacks = select_stacks()
 
 for n, src in enumerate(stacks):
+    print '[%d/%d] %s' % (n+1, len(stacks), src)
     run_TrackMate(src)
+    print 'Tracking complete.'

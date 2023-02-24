@@ -12,8 +12,9 @@ import os
 from glob import glob
 import time
 
-INPUT_PATTERN = 'test/*__registered.Track_*.tif'
-IMAGE_ZOOM = 8
+INPUT_PATTERN = '*__registered.Track_*.tif'
+IMAGE_ZOOM = 8  # x 100%
+LOOP_DELAY = .1  # seconds
 
 def select_stacks():
     '''
@@ -60,11 +61,14 @@ def open_bioformats(filename, channel=0, frame=-1, series=0):
 
     return imps[0]
 
-def process_image(filename):
-
+def annotate_image(filename):
+    '''
+    Manually annotate a Z-ring by drawing an ROI.
+    '''
     # Open the image.
     im = open_bioformats(filename)
 
+    # Construct output file paths.
     im_info = im.getOriginalFileInfo()
     out_path = im_info.directory
     basename = im_info.fileName.rsplit('.', 1)[0]
@@ -95,7 +99,7 @@ def process_image(filename):
     # Or, if the user closes the image, skip it.
     while True:
 
-        time.sleep(.1)
+        time.sleep(LOOP_DELAY)
 
         if rm.getCount() > 0:
             print ' - ROI saved.'
@@ -118,7 +122,6 @@ def process_image(filename):
 stacks = select_stacks()
 
 for n, src in enumerate(stacks):
-
     print '[%d/%d] %s' % (n+1, len(stacks), src)
-
-    process_image(src)
+    annotate_image(src)
+    print 'Annotation complete.'
