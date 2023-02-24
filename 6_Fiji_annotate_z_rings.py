@@ -62,8 +62,6 @@ def open_bioformats(filename, channel=0, frame=-1, series=0):
 
 def process_image(filename):
 
-    print 'Processing:', filename
-
     # Open the image.
     im = open_bioformats(filename)
 
@@ -120,4 +118,7 @@ def process_image(filename):
 stacks = select_stacks()
 
 for n, src in enumerate(stacks):
+
+    print '[%d/%d] %s' % (n+1, len(stacks), src)
+
     process_image(src)

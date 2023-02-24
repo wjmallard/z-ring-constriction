@@ -19,8 +19,8 @@ from pystackreg import StackReg
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-MARGIN = 3
-MIN_TRACK_LENGTH = 10
+MARGIN = 2
+MIN_TRACK_LENGTH = 20
 
 def save_image(filename, data):
     ome_tiff_writer.OmeTiffWriter.save(data, filename, dim_order='TYX')
@@ -101,15 +101,15 @@ def isolate_z_rings(xml_file):
     #
     # Extract frames along track.
     #
-    sr = StackReg(StackReg.RIGID_BODY)
+    sr = StackReg(StackReg.TRANSLATION)
 
     for (_, track_name), track in tracks.groupby(['TRACK_ID', 'Track_Name']):
 
-        print(f' - {track_name}')
-
         if len(track) < MIN_TRACK_LENGTH:
-            print('   (too short, skipping)')
+            print(f' - {track_name}: Skipping.')
             continue
+        else:
+            print(f' - {track_name}: Registering {len(track)} frames.')
 
         # Initialize output tiff stack.
         T = len(track)
