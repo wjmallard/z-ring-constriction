@@ -25,7 +25,7 @@ def select_stacks():
         return []
 
     pattern = os.path.join(basedir, INPUT_PATTERN)
-    targets = glob(pattern)
+    targets = sorted(glob(pattern))
 
     print 'Found %s images matching:' % len(targets)
     print ' - %s' % pattern
@@ -69,12 +69,17 @@ def process_image(filename):
 
     im_info = im.getOriginalFileInfo()
     out_path = im_info.directory
-    out_name = im_info.fileName.rsplit('.', 1)[0] + '.roi'
-    outFile = File(out_path, out_name)
+    basename = im_info.fileName.rsplit('.', 1)[0]
+
+    outFile = File(out_path, basename + '.roi')
+    skipFile = File(out_path, basename + '.skip')
 
     # Skip images with existing ROIs.
     if outFile.exists():
-        print '%s: ROI already exists. Skipping.' % outFile
+        print ' - Image already annotated. Skipping.'
+        return
+    if skipFile.exists():
+        print ' - Image already rejected. Skipping.'
         return
 
     # Display the image.
@@ -95,14 +100,15 @@ def process_image(filename):
         time.sleep(.1)
 
         if rm.getCount() > 0:
-            print 'Saving ROI.'
+            print ' - ROI saved.'
             rm.select(0)
             rm.save(outFile.path)
-            rm.delete(0)
+            rm.reset()
             break
 
         if WindowManager.getImageCount() < 1:
-            print 'Image closed. Skipping ROI.'
+            print ' - Image rejected.'
+            skipFile.createNewFile()
             return
 
     # Close the image.
