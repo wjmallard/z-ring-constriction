@@ -25,6 +25,12 @@ MIN_TRACK_LENGTH = 20
 def save_image(filename, data):
     ome_tiff_writer.OmeTiffWriter.save(data, filename, dim_order='TYX')
 
+def is_out_of_bounds(track, x_max, y_max):
+    return ((track.x1 < 0).any() |
+            (track.x2 >= x_max).any() |
+            (track.y1 < 0).any() |
+            (track.y2 >= y_max).any())
+
 def isolate_z_rings(xml_file):
 
     #
@@ -91,11 +97,6 @@ def isolate_z_rings(xml_file):
 
     t_max, y_max, x_max = im.shape
 
-    tracks['x1'] = np.clip(tracks.x1, 0, x_max)
-    tracks['x2'] = np.clip(tracks.x2, 0, x_max)
-    tracks['y1'] = np.clip(tracks.y1, 0, y_max)
-    tracks['y2'] = np.clip(tracks.y2, 0, y_max)
-
     #%%
     #
     # Extract frames along track.
@@ -105,7 +106,10 @@ def isolate_z_rings(xml_file):
     for (_, track_name), track in tracks.groupby(['TRACK_ID', 'Track_Name']):
 
         if len(track) < MIN_TRACK_LENGTH:
-            print(f' - {track_name}: Skipping.')
+            print(f' - {track_name}: Skipping: too short.')
+            continue
+        elif is_out_of_bounds(track, x_max, y_max):
+            print(f' - {track_name}: Skipping: too close to edge.')
             continue
         else:
             print(f' - {track_name}: Registering {len(track)} frames.')
