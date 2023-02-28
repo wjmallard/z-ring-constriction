@@ -12,7 +12,7 @@ import os
 from glob import glob
 import time
 
-INPUT_PATTERN = '*__registered.Track_*.tif'
+INPUT_PATTERN = '*_s1__registered.Track_*.tif'
 IMAGE_ZOOM = 8  # x 100%
 LOOP_DELAY = .1  # seconds
 
@@ -84,15 +84,16 @@ def annotate_image(filename):
         print ' - Image already rejected. Skipping.'
         return
 
-    # Display the image.
-    im.show()
-    Zoom.set(im, IMAGE_ZOOM)
-
     # Initialize the ROI Manager.
     rm = RoiManager.getInstance()
     if (rm is None):
         rm = RoiManager()
     rm.reset()
+
+    # Display the image.
+    im.show()
+    Zoom.set(im, IMAGE_ZOOM)
+    IJ.setTool('line')
 
     # Event loop:
     # Wait for an ROI selection, and save it.
@@ -124,4 +125,5 @@ stacks = select_stacks()
 for n, src in enumerate(stacks):
     print '[%d/%d] %s' % (n+1, len(stacks), src)
     annotate_image(src)
-    print 'Annotation complete.'
+
+print 'Annotation complete.'
