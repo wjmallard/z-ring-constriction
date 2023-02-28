@@ -128,4 +128,5 @@ def parse_tracks(xml_file):
 for n, filename in enumerate(xml_files):
     print(f'[{n+1}/{len(xml_files)}] {filename}')
     parse_tracks(filename)
-    print('Parsing complete.')
+
+print('Parsing complete.')

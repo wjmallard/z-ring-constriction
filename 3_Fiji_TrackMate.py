@@ -226,4 +226,5 @@ stacks = select_stacks()
 for n, src in enumerate(stacks):
     print '[%d/%d] %s' % (n+1, len(stacks), src)
     run_TrackMate(src)
-    print 'Tracking complete.'
+
+print 'Tracking complete.'

@@ -142,4 +142,5 @@ def isolate_z_rings(xml_file):
 for n, filename in enumerate(xml_files):
     print(f'[{n+1}/{len(xml_files)}] {filename}')
     isolate_z_rings(filename)
-    print('Registration complete.')
+
+print('Registration complete.')
