@@ -17,18 +17,10 @@ import pathlib
 from aicsimageio.readers import tiff_reader
 from scipy.optimize import least_squares
 
-# MIN_ECCENTRICITY = .5  # 0 = circle, 1 = hyperbola
 MAX_SIGMA = 4  # High sigma means we prob aligned along cell axis.
 
 def load_image(filename):
     return tiff_reader.TiffReader(filename, dim_order='TYX').data
-
-def save_results(filename, cx, cy, sigma_x, sigma_y, theta, ecc):
-    df = pd.DataFrame(
-        data = [(cx, cy, sigma_x, sigma_y, theta, ecc)],
-        columns = ['cx', 'cy', 'sigma_x', 'sigma_y', 'theta', 'ecc']
-    )
-    df.to_csv(filename, sep='\t', index=None)
 
 def file_exists(filename):
     return pathlib.Path(filename).exists()
@@ -171,12 +163,6 @@ def find_division_plane(filename):
     else:
         a, b = sigma_y, sigma_x
         theta += 90
-    # eccentricity = np.sqrt(1. - (b / a) ** 2)
-    # 
-    # if eccentricity < MIN_ECCENTRICITY:
-    #     print(' - Rejected. Gaussian not eccentric enough.')
-    #     print(f' - Reason: ecc = {eccentricity:.02f} < {MIN_ECCENTRICITY}')
-    #     return
 
     largest_sigma = max(sigma_x, sigma_y)
     if largest_sigma > MAX_SIGMA:
