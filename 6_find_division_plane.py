@@ -163,6 +163,7 @@ def find_division_plane(filename):
     else:
         a, b = sigma_y, sigma_x
         theta += 90
+    eccentricity = np.sqrt(1. - (b / a) ** 2)
 
     largest_sigma = max(sigma_x, sigma_y)
     if largest_sigma > MAX_SIGMA:
@@ -187,9 +188,20 @@ def find_division_plane(filename):
     (x1, y1), (x2, y2) = make_line_endpoints((cx, cy), theta, 12)
 
     plt.close('all')
-    plt.imshow(im_sum)
+    plt.imshow(im_sum, cmap='Greys_r')
     plt.scatter(cx, cy, color='r', marker='s')
     plt.plot((x1, x2), (y1, y2))
+
+    msg = f'ecc = {eccentricity:.02f}\n'
+    msg += f'sig_x = {sigma_x:.02f}\n'
+    msg += f'sig_y = {sigma_y:.02f}'
+    ax = plt.gca()
+    ax.text(.99, .01, msg,
+            color='white',
+            horizontalalignment='right',
+            verticalalignment='bottom',
+            transform=ax.transAxes)
+
     plt.savefig(png_file)
 
 for n, filename in enumerate(tif_files):
