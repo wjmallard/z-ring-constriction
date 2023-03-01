@@ -68,6 +68,9 @@ def make_line_endpoints(center, theta, length):
 def calc_moments(data):
     '''
     Estimate the Gaussian parameters of a 2D distribution by calculating its moments.
+
+    Adapted from:
+    https://scipy-cookbook.readthedocs.io/items/FittingData.html
     '''
     # Find the centroid.
     X, Y = np.indices(data.shape)
@@ -92,6 +95,9 @@ def Gaussian2D(x, y, A, x0, y0, sigma_x, sigma_y, theta):
     Calculate the values of a 2D gaussian at (x, y) with the given parameters.
     
     theta is the angle of the semimajor axis, in degrees, measured clockwise from the x-axis.
+
+    Adapted from:
+    https://www.astro.rug.nl/~vogelaar/Gaussians2D/2dgaussians.html
     '''
     theta = np.radians(theta)
     sigx2 = sigma_x ** 2
@@ -112,6 +118,9 @@ def fit_Gaussian2D(data):
     Returns: (A, y0, x0, sigma_y, sigma_x, theta)
     
     theta is the angle of the semimajor axis, in degrees, measured clockwise from the x-axis.
+    
+    Adapted from:
+    https://scipy-cookbook.readthedocs.io/items/FittingData.html
     '''
     # xy: coordinates to evaluate the Gaussian at.
     # p0: initial guess of the Gaussian parameters.
