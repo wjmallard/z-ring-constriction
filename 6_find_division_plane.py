@@ -71,7 +71,7 @@ def make_line_endpoints(center, theta, length):
 
 def interp_along_line(im, line, resolution):
 
-    nx, ny = im.shape
+    ny, nx = im.shape
 
     y = np.arange(ny)
     x = np.arange(nx)
@@ -140,6 +140,9 @@ def find_FWHM_intercepts(signal):
 
     spline = UnivariateSpline(x, y, s=0)
     roots = spline.roots()
+
+    if peak_loc < roots.min() or peak_loc > roots.max():
+        raise FWHMError('Max value does not occur between roots.')
 
     if len(roots) == 2:
         r1, r2 = roots
