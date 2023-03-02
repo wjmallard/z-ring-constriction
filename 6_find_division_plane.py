@@ -141,12 +141,12 @@ def find_FWHM_intercepts(signal):
     spline = UnivariateSpline(x, y, s=0)
     roots = spline.roots()
 
-    if peak_loc < roots.min() or peak_loc > roots.max():
-        raise FWHMError('Max value does not occur between roots.')
-
     if len(roots) == 2:
         r1, r2 = roots
     elif len(roots) > 2:
+        if peak_loc < roots.min() or peak_loc > roots.max():
+            raise FWHMError('Max value does not occur between roots.')
+
         print(f'Using root disambiguation: {peak_loc} in {roots}')
         r1, r2 = find_roots_around_peak(roots, peak_loc)
     else:
