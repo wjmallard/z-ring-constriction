@@ -179,7 +179,7 @@ def calc_FWHM_along_line(data, cx, cy, theta, length, resolution):
 
 def maximize_FWHM(data):
 
-    data_middle = data * gaussian_kernel(len(data), KERNEL_SIZE)
+    #data_middle = data * gaussian_kernel(len(data), KERNEL_SIZE)
     cx, cy = find_centroid(data)
 
     obj_func = lambda p: KYMO_RESOLUTION - calc_FWHM_along_line(data, cx, cy, *p, KYMO_WIDTH, KYMO_RESOLUTION)
