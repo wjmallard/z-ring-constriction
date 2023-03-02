@@ -15,9 +15,21 @@ import matplotlib.pyplot as plt
 import pathlib
 
 from aicsimageio.readers import tiff_reader
+from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import RectBivariateSpline
 from scipy.optimize import least_squares
+from scipy.signal import gaussian
 
-MAX_SIGMA = 4  # High sigma means we prob aligned along cell axis.
+# from scipy.ndimage import gaussian_filter
+# BLUR_RADIUS = .5
+# data = gaussian_filter(data, BLUR_RADIUS)
+
+KERNEL_SIZE = 3  # Should be about 1/4 the feature size.
+KYMO_WIDTH = 12
+KYMO_RESOLUTION = 100
+MIN_FWHM_RATIO = 1.5
+
+debug = False
 
 def load_image(filename):
     return tiff_reader.TiffReader(filename, dim_order='TYX').data
@@ -57,119 +69,176 @@ def make_line_endpoints(center, theta, length):
 
     return (x1, y1), (x2, y2)
 
-def calc_moments(data):
+def interp_along_line(im, line, resolution):
+
+    nx, ny = im.shape
+
+    y = np.arange(ny)
+    x = np.arange(nx)
+
+    sp = RectBivariateSpline(y, x, im)
+
+    x1, x2, y1, y2 = line
+
+    y = np.linspace(y1, y2, resolution)
+    x = np.linspace(x1, x2, resolution)
+
+    return sp.ev(y, x)
+
+def find_profile(data, cx, cy, theta, length, resolution):
+
+    (x1, y1), (x2, y2) = make_line_endpoints((cx, cy), theta, length)
+    line = (x1, x2, y1, y2)
+
+    profile = interp_along_line(data, line, resolution)
+
+    return profile
+
+def gaussian_kernel(width, stdev):
     '''
-    Estimate the Gaussian parameters of a 2D distribution by calculating its moments.
+    Generate a 2D Gaussian kernel.
+    '''
+    kernel_1D = gaussian(width, std=stdev)
+    kernel_2D = np.outer(kernel_1D, kernel_1D)
+    return kernel_2D
+
+def argmax_2D(data):
+    '''
+    Returns: cy, cx
+    '''
+    return np.unravel_index(np.argmax(data), data.shape)
+
+def find_centroid(data):
+    '''
+    Find the centroid of a 2D distribution.
 
     Adapted from:
     https://scipy-cookbook.readthedocs.io/items/FittingData.html
     '''
-    # Find the centroid.
-    X, Y = np.indices(data.shape)
-    
-    cx = (X * data).sum() / data.sum()
+    Y, X = np.indices(data.shape)
+
     cy = (Y * data).sum() / data.sum()
+    cx = (X * data).sum() / data.sum()
 
-    # Find the width around the centroid.
-    row = data[int(cx), :]
-    col = data[:, int(cy)]
+    return cy, cx
 
-    width_x = np.sqrt(np.abs((np.arange(col.size) - cx) ** 2 * col).sum() / col.sum())
-    width_y = np.sqrt(np.abs((np.arange(row.size) - cy) ** 2 * row).sum() / row.sum())
+def find_roots_around_peak(roots, peak_loc):
     
-    # Find the height.
-    height = data.max()
+    s = roots - peak_loc
+    i = np.where(np.sign(s[:1]) != np.sign(s[1:]))[0][0]
+
+    r1 = roots[i]
+    r2 = roots[i+1]
     
-    return height, cx, cy, width_x, width_y
+    return r1, r2
 
-def Gaussian2D(x, y, A, x0, y0, sigma_x, sigma_y, theta):
-    '''
-    Calculate the values of a 2D gaussian at (x, y) with the given parameters.
+class FWHMError(Exception):
+    def __init__(self, msg):
+        super().__init__(msg)
+
+def find_FWHM_intercepts(signal):
+
+    peak_loc = np.argmax(signal)
+    half_max = np.max(signal) / 2
     
-    theta is the angle of the semimajor axis, in degrees, measured clockwise from the x-axis.
+    x = np.arange(len(signal))
+    y = signal - half_max
 
-    Adapted from:
-    https://www.astro.rug.nl/~vogelaar/Gaussians2D/2dgaussians.html
-    '''
-    theta = np.radians(theta)
-    sigx2 = sigma_x ** 2
-    sigy2 = sigma_y ** 2
+    spline = UnivariateSpline(x, y, s=0)
+    roots = spline.roots()
 
-    a = np.cos(theta) ** 2 / (2 * sigx2) + np.sin(theta) ** 2 / (2 * sigy2)
-    b = np.sin(theta) ** 2 / (2 * sigx2) + np.cos(theta) ** 2 / (2 * sigy2)
-    c = - np.sin(2 * theta) / (4 * sigx2) + np.sin(2 * theta) / (4 * sigy2)
-    
-    expo = a * (x - x0) ** 2 + b * (y - y0) ** 2 + 2 * c * (x - x0) * (y - y0)
+    if len(roots) == 2:
+        r1, r2 = roots
+    elif len(roots) > 2:
+        print(f'Using root disambiguation: {peak_loc} in {roots}')
+        r1, r2 = find_roots_around_peak(roots, peak_loc)
+    else:
+        raise FWHMError('Did not find at least 2 roots in FWHM calculation.')
 
-    return A * np.exp(-expo)
+    return r1, r2
 
-def fit_Gaussian2D(data):
-    '''
-    Fit a 2D Gaussian to the data.
+def calc_FWHM(signal):
 
-    Returns: (A, y0, x0, sigma_y, sigma_x, theta)
-    
-    theta is the angle of the semimajor axis, in degrees, measured clockwise from the x-axis.
-    
-    Adapted from:
-    https://scipy-cookbook.readthedocs.io/items/FittingData.html
-    '''
-    # xy: coordinates to evaluate the Gaussian at.
-    # p0: initial guess of the Gaussian parameters.
-    #   - Find the moments of the data.
-    #   - Tack on an initial guess of 0 degrees for theta.
-    xy = np.indices(data.shape)
-    p0 = *calc_moments(data), 0
+    r1, r2 = find_FWHM_intercepts(signal)
 
-    # Construct an objective function.
-    #   - input: six Gaussian parameters
-    #   - output: a 1D array of pixelwise errors
-    objective_function = lambda p: np.ravel(Gaussian2D(*xy, *p) - data)
+    return r2 - r1
 
-    # Run the optimizer.
-    result = least_squares(objective_function, p0)
+def calc_FWHM_along_line(data, cx, cy, theta, length, resolution):
+
+    profile = find_profile(data, cx, cy, theta, length, resolution)
+
+    profile -= profile.min()
+
+    fwhm = calc_FWHM(profile)
+
+    if debug:
+        print(f'theta: {theta:.02f} -- fwhm: {fwhm:.02f} -- max: {profile.max():.0f}')
+
+    return fwhm
+
+def maximize_FWHM(data):
+
+    data_middle = data * gaussian_kernel(len(data), KERNEL_SIZE)
+    cx, cy = find_centroid(data)
+
+    obj_func = lambda p: KYMO_RESOLUTION - calc_FWHM_along_line(data, cx, cy, *p, KYMO_WIDTH, KYMO_RESOLUTION)
+
+    result = least_squares(obj_func, 0)
 
     return result
 
 def find_division_plane(filename):
-    
+
     basename = filename[:-len('.tif')]
     out_file = f'{basename}.division_plane.tsv'
     png_file = f'{basename}.division_plane.png'
-    
+
     if file_exists(out_file):
         print(' - Coordinates file already exists. Skipping.')
         return
-    
+
     im = load_image(filename)
     im_sum = im.sum(axis=0)
 
     try:
-        result = fit_Gaussian2D(im_sum)
+        result = maximize_FWHM(im_sum)
     except ValueError as ex:
-        print(' - Rejected. 2D Gaussian fit failed.')
+        print(' - Rejected. Optimizer aborted.')
         print(f' - Reason: ValueError: "{ex}"')
+        return
+    except FWHMError as ex:
+        print(' - Rejected. FWHM calculation failed.')
+        print(f' - Reason: FWHMError: "{ex}"')
         return
 
     if not result.success:
-        print(' - Rejected. 2D Gaussian fit failed.')
+        print(' - Rejected. Optimizer failed.')
         print(f' - Reason: Solver: "{result.message}"')
         return
 
-    A, cy, cx, sigma_y, sigma_x, theta = result.x
+    theta = result.x[0]
 
-    if sigma_x > sigma_y:
-        a, b = sigma_x, sigma_y
-    else:
-        a, b = sigma_y, sigma_x
-        theta += 90
-    eccentricity = np.sqrt(1. - (b / a) ** 2)
+    '''
+    Check result quality.
+    '''
+    im_sum_middle = im_sum * gaussian_kernel(len(im_sum), KERNEL_SIZE)
+    cy, cx = find_centroid(im_sum_middle)
+    profile1 = find_profile(im_sum, cx, cy, theta, KYMO_WIDTH, KYMO_RESOLUTION)
+    profile2 = find_profile(im_sum, cx, cy, theta + 90, KYMO_WIDTH, KYMO_RESOLUTION)
 
-    largest_sigma = max(sigma_x, sigma_y)
-    if largest_sigma > MAX_SIGMA:
-        print(' - Rejected. Gaussian sigma too large. Possibly aligned along cell body.')
-        print(f' - Reason: sigma = {largest_sigma:.02f} > {MAX_SIGMA}')
-        return
+    try:
+        fwhm1 = calc_FWHM(profile1)
+    except FWHMError:
+        fwhm1 = np.nan
+    try:
+        fwhm2 = calc_FWHM(profile2)
+    except FWHMError:
+        fwhm2 = np.nan
+
+    # if fwhm1 / fwhm2 < MIN_FWHM_RATIO:
+    #     print(' - Rejected. Gaussian sigma too large. Possibly aligned along cell body.')
+    #     print(f' - Reason: {fwhm1 / fwhm2:.2f} < MIN_FWHM_RATIO')
+    #     return
 
     # Wrap angle.
     theta %= 180
@@ -181,20 +250,24 @@ def find_division_plane(filename):
         'cx': [cx],
         'cy': [cy],
         'theta': [theta],
+        'fwhm1': [fwhm1],
+        'fwhm2': [fwhm2],
     })
     df.to_csv(out_file, sep='\t', index=None)
 
     # Save debugging plot.
-    (x1, y1), (x2, y2) = make_line_endpoints((cx, cy), theta, 12)
+    (x1, y1), (x2, y2) = make_line_endpoints((cx, cy), theta, KYMO_WIDTH)
 
     plt.close('all')
     plt.imshow(im_sum, cmap='Greys_r')
     plt.scatter(cx, cy, color='r', marker='s')
     plt.plot((x1, x2), (y1, y2))
 
-    msg = f'ecc = {eccentricity:.02f}\n'
-    msg += f'sig_x = {sigma_x:.02f}\n'
-    msg += f'sig_y = {sigma_y:.02f}'
+    msg = ''
+    if (fwhm1 / fwhm2 < MIN_FWHM_RATIO) or np.isnan(fwhm1) or np.isnan(fwhm2):
+        msg += 'REJECTED\n'
+    msg += f'fwhm1 = {fwhm1:.02f}\n'
+    msg += f'fwhm2 = {fwhm2:.02f}'
     ax = plt.gca()
     ax.text(.99, .01, msg,
             color='white',
