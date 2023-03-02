@@ -20,16 +20,12 @@ from scipy.interpolate import RectBivariateSpline
 from scipy.optimize import least_squares
 from scipy.signal import gaussian
 
-# from scipy.ndimage import gaussian_filter
-# BLUR_RADIUS = .5
-# data = gaussian_filter(data, BLUR_RADIUS)
-
 KERNEL_SIZE = 3  # Should be about 1/4 the feature size.
 KYMO_WIDTH = 12
 KYMO_RESOLUTION = 100
 MIN_FWHM_RATIO = 1.5
 
-debug = False
+DEBUG = False
 
 def load_image(filename):
     return tiff_reader.TiffReader(filename, dim_order='TYX').data
@@ -151,7 +147,8 @@ def find_FWHM_intercepts(signal):
         if peak_loc < roots.min() or peak_loc > roots.max():
             raise FWHMError('Max value does not occur between roots.')
 
-        print(f'Using root disambiguation: {peak_loc} in {roots}')
+        if DEBUG:
+            print(f'Using root disambiguation: {peak_loc} in {roots}')
         r1, r2 = find_roots_around_peak(roots, peak_loc)
     else:
         raise FWHMError('Did not find at least 2 roots in FWHM calculation.')
@@ -164,6 +161,15 @@ def calc_FWHM(signal):
 
     return r2 - r1
 
+def calc_FWHM_silent(signal):
+
+    try:
+        r1, r2 = find_FWHM_intercepts(signal)
+    except FWHMError:
+        return np.nan
+
+    return r2 - r1
+
 def calc_FWHM_along_line(data, cx, cy, theta, length, resolution):
 
     profile = find_profile(data, cx, cy, theta, length, resolution)
@@ -172,19 +178,45 @@ def calc_FWHM_along_line(data, cx, cy, theta, length, resolution):
 
     fwhm = calc_FWHM(profile)
 
-    if debug:
+    if DEBUG:
         print(f'theta: {theta:.02f} -- fwhm: {fwhm:.02f} -- max: {profile.max():.0f}')
 
     return fwhm
 
-def maximize_FWHM(data):
-
-    #data_middle = data * gaussian_kernel(len(data), KERNEL_SIZE)
-    cx, cy = find_centroid(data)
+def maximize_FWHM_vs_angle(data, cx, cy, theta0):
+    '''
+    For a fixed center point (cx, cy), find an angle theta that maximizes FWHM.
+    '''
+    p0 = [theta0]
 
     obj_func = lambda p: KYMO_RESOLUTION - calc_FWHM_along_line(data, cx, cy, *p, KYMO_WIDTH, KYMO_RESOLUTION)
 
-    result = least_squares(obj_func, 0)
+    result = least_squares(obj_func, p0)
+
+    return result
+
+def integrate_along_line(data, cx, cy, theta, length, resolution, window=None):
+
+    profile = find_profile(data, cx, cy, theta, length, resolution)
+
+    if window is not None:
+        profile = profile * window
+
+    return profile.sum()
+
+def maximize_signal_vs_position(data, cx0, cy0, theta):
+    '''
+    For a fixed angle theta, find a center point (cx, cy) that maximizes FWHM.
+    '''
+    stdev = int(np.round(KYMO_RESOLUTION * KERNEL_SIZE / len(data)))
+    window = gaussian(KYMO_RESOLUTION, std=stdev)
+
+    p0 = [cx0, cy0]
+
+    max_val = data.sum()
+    obj_func = lambda p: max_val - integrate_along_line(data, *p, theta, KYMO_WIDTH, KYMO_RESOLUTION, window=window)
+
+    result = least_squares(obj_func, [cx0, cy0])
 
     return result
 
@@ -202,8 +234,16 @@ def find_division_plane(filename):
     im = load_image(filename)
     im_sum = im.sum(axis=0)
 
+    '''
+    1. Estimate ring position.
+    '''
+    cx1, cy1 = find_centroid(im_sum)
+
+    '''
+    2. Estimate ring orientation.
+    '''
     try:
-        result = maximize_FWHM(im_sum)
+        result = maximize_FWHM_vs_angle(im_sum, cx1, cy1, 0)
     except ValueError as ex:
         print(' - Rejected. Optimizer aborted.')
         print(f' - Reason: ValueError: "{ex}"')
@@ -221,76 +261,136 @@ def find_division_plane(filename):
         write_textfile(out_file, 'Rejected.')
         return
 
-    theta = result.x[0]
+    theta1, = result.x
+
+    # Wrap angle.
+    theta1 %= 180
 
     '''
-    Check result quality.
+    3. Refine ring position.
+    '''
+    try:
+        result = maximize_signal_vs_position(im_sum, cx1, cy1, theta1)
+    except Exception as ex:
+        print(' - Rejected. Center position refinement failed.')
+        print(f' - Reason: "{ex}"')
+        return
+
+    if not result.success:
+        print(' - Rejected. Optimizer failed.')
+        print(f' - Reason: Solver: "{result.message}"')
+        write_textfile(out_file, 'Rejected.')
+        return
+
+    cx2, cy2 = result.x
+
+    '''
+    Filter out low quality estimates.
     '''
     rejected = False
 
-    im_sum_middle = im_sum * gaussian_kernel(len(im_sum), KERNEL_SIZE)
-    cy, cx = find_centroid(im_sum_middle)
-    profile1 = find_profile(im_sum, cx, cy, theta, KYMO_WIDTH, KYMO_RESOLUTION)
-    profile2 = find_profile(im_sum, cx, cy, theta + 90, KYMO_WIDTH, KYMO_RESOLUTION)
+    profile_0deg = find_profile(im_sum, cx2, cy2, theta1, KYMO_WIDTH, KYMO_RESOLUTION)
+    profile_90deg = find_profile(im_sum, cx2, cy2, theta1 + 90, KYMO_WIDTH, KYMO_RESOLUTION)
 
-    try:
-        fwhm1 = calc_FWHM(profile1)
-    except FWHMError:
-        fwhm1 = np.nan
-        rejected = True
-    try:
-        fwhm2 = calc_FWHM(profile2)
-    except FWHMError:
-        fwhm2 = np.nan
-        rejected = True
+    fwhm_0deg = calc_FWHM_silent(profile_0deg)
+    fwhm_90deg = calc_FWHM_silent(profile_90deg)
 
-    if (fwhm1 / fwhm2 < MIN_FWHM_RATIO) or np.isnan(fwhm1) or np.isnan(fwhm2):
+    if (fwhm_0deg / fwhm_90deg < MIN_FWHM_RATIO) or np.isnan(fwhm_0deg) or np.isnan(fwhm_90deg):
         print(' - Rejected. FWHM ratio indicates poor fit.')
-        print(f' - Reason: {fwhm1 / fwhm2:.2f} < MIN_FWHM_RATIO')
+        print(f' - Reason: {fwhm_0deg / fwhm_90deg:.2f} < MIN_FWHM_RATIO')
         write_textfile(out_file, 'Rejected.')
         rejected = True
-
-    # Wrap angle.
-    theta %= 180
 
     if not rejected:
         print(' - Success.')
 
         # Save to disk.
         df = pd.DataFrame({
-            'cx': [cx],
-            'cy': [cy],
-            'theta': [theta],
-            'fwhm1': [fwhm1],
-            'fwhm2': [fwhm2],
+            'cx': [cx2],
+            'cy': [cy2],
+            'theta': [theta1],
+            'FWHM_0deg': [fwhm_0deg],
+            'FWHM_90deg': [fwhm_90deg],
         })
         df.to_csv(tsv_file, sep='\t', index=None)
         write_textfile(out_file, 'Success.')
 
-    #
-    # Save debugging plot.
-    #
-    (x1, y1), (x2, y2) = make_line_endpoints((cx, cy), theta, KYMO_WIDTH)
-
+    '''
+    Generate plots for QC.
+    '''
     plt.close('all')
-    plt.imshow(im_sum, cmap='Greys_r')
-    plt.scatter(cx, cy, color='r', marker='s')
-    plt.plot((x1, x2), (y1, y2))
 
-    msg = ''
+    fig, axes = plt.subplots(1, 2)
+    fig.set_figheight(5)
+    fig.set_figwidth(10)
+
+    #
+    # Image with estimated division plane
+    #
+    ax = axes[0]
+
+    ax.imshow(im_sum, cmap='Greys_r')
+
+    (x1, y1), (x2, y2) = make_line_endpoints((cx1, cy1), theta1, KYMO_WIDTH)
+    ax.scatter(cx1, cy1, color='r', marker='s')
+    ax.plot((x1, x2), (y1, y2), label='v1')
+
+    (x1, y1), (x2, y2) = make_line_endpoints((cx2, cy2), theta1, KYMO_WIDTH)
+    ax.scatter(cx2, cy2, color='g', marker='s')
+    ax.plot((x1, x2), (y1, y2), label='v2')
+
     if rejected:
-        msg += 'REJECTED\n'
-        png_file = f'{basename}.division_plane.rejected.png'
-    msg += f'fwhm1 = {fwhm1:.02f}\n'
-    msg += f'fwhm2 = {fwhm2:.02f}'
-    ax = plt.gca()
-    ax.text(.99, .01, msg,
-            color='white',
-            horizontalalignment='right',
-            verticalalignment='bottom',
-            transform=ax.transAxes)
+        msg = 'REJECTED'
+        ax.text(.50, .01, msg,
+                color='white',
+                horizontalalignment='center',
+                verticalalignment='bottom',
+                transform=ax.transAxes)
 
-    plt.savefig(png_file)
+    ax.legend(loc='upper right')
+
+    #
+    # Projection along and orthogonal to the division plane
+    #
+    ax = axes[1]
+
+    ax.plot(profile_0deg,
+            color='tab:orange',
+            linestyle='solid',
+            label=f'0˚ [{np.round(fwhm_0deg):.0f}]')
+
+    if not np.isnan(fwhm_0deg):
+        r1, r2 = find_FWHM_intercepts(profile_0deg)
+        half_max = profile_0deg.max() / 2
+        ax.hlines(half_max, r1, r2, color='red', linestyle=':')
+
+    ax.plot(profile_90deg,
+            color='tab:green',
+            linestyle='dashed',
+            label=f'90˚ [{np.round(fwhm_90deg):.0f}]')
+
+    if not np.isnan(fwhm_90deg):
+        r1, r2 = find_FWHM_intercepts(profile_90deg)
+        half_max = profile_90deg.max() / 2
+        ax.hlines(half_max, r1, r2, color='black', linestyle=':')
+
+    ax.set_ylim(0, None)
+
+    if rejected:
+        msg = 'REJECTED'
+        ax.text(.50, .01, msg,
+                color='black',
+                horizontalalignment='center',
+                verticalalignment='bottom',
+                transform=ax.transAxes)
+
+    ax.legend(loc='upper right')
+
+    fig.tight_layout()
+
+    if rejected:
+        png_file = f'{basename}.division_plane.rejected.png'
+    fig.savefig(png_file)
 
 for n, filename in enumerate(tif_files):
     print(f'[{n+1}/{len(tif_files)}] {filename}')
