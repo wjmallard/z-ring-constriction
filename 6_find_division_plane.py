@@ -37,6 +37,10 @@ def load_image(filename):
 def file_exists(filename):
     return pathlib.Path(filename).exists()
 
+def write_textfile(filename, msg):
+    with open(filename, 'w') as fid:
+        print(msg, file=fid)
+
 def make_line_endpoints(center, theta, length):
     '''
     Generate endpoint xy-coords of a line with the specified parameters.
@@ -187,11 +191,12 @@ def maximize_FWHM(data):
 def find_division_plane(filename):
 
     basename = filename[:-len('.tif')]
-    out_file = f'{basename}.division_plane.tsv'
+    tsv_file = f'{basename}.division_plane.tsv'
     png_file = f'{basename}.division_plane.png'
+    out_file = f'{basename}.division_plane.out'
 
     if file_exists(out_file):
-        print(' - Coordinates file already exists. Skipping.')
+        print(' - Already processed. Skipping.')
         return
 
     im = load_image(filename)
@@ -202,15 +207,18 @@ def find_division_plane(filename):
     except ValueError as ex:
         print(' - Rejected. Optimizer aborted.')
         print(f' - Reason: ValueError: "{ex}"')
+        write_textfile(out_file, 'Rejected.')
         return
     except FWHMError as ex:
         print(' - Rejected. FWHM calculation failed.')
         print(f' - Reason: FWHMError: "{ex}"')
+        write_textfile(out_file, 'Rejected.')
         return
 
     if not result.success:
         print(' - Rejected. Optimizer failed.')
         print(f' - Reason: Solver: "{result.message}"')
+        write_textfile(out_file, 'Rejected.')
         return
 
     theta = result.x[0]
@@ -239,6 +247,7 @@ def find_division_plane(filename):
     if (fwhm1 / fwhm2 < MIN_FWHM_RATIO) or np.isnan(fwhm1) or np.isnan(fwhm2):
         print(' - Rejected. FWHM ratio indicates poor fit.')
         print(f' - Reason: {fwhm1 / fwhm2:.2f} < MIN_FWHM_RATIO')
+        write_textfile(out_file, 'Rejected.')
         rejected = True
 
     # Wrap angle.
@@ -255,7 +264,8 @@ def find_division_plane(filename):
             'fwhm1': [fwhm1],
             'fwhm2': [fwhm2],
         })
-        df.to_csv(out_file, sep='\t', index=None)
+        df.to_csv(tsv_file, sep='\t', index=None)
+        write_textfile(out_file, 'Success.')
 
     #
     # Save debugging plot.
