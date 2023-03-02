@@ -102,12 +102,6 @@ def gaussian_kernel(width, stdev):
     kernel_2D = np.outer(kernel_1D, kernel_1D)
     return kernel_2D
 
-def argmax_2D(data):
-    '''
-    Returns: cy, cx
-    '''
-    return np.unravel_index(np.argmax(data), data.shape)
-
 def find_centroid(data):
     '''
     Find the centroid of a 2D distribution.
@@ -221,6 +215,8 @@ def find_division_plane(filename):
     '''
     Check result quality.
     '''
+    rejected = False
+
     im_sum_middle = im_sum * gaussian_kernel(len(im_sum), KERNEL_SIZE)
     cy, cx = find_centroid(im_sum_middle)
     profile1 = find_profile(im_sum, cx, cy, theta, KYMO_WIDTH, KYMO_RESOLUTION)
@@ -230,32 +226,37 @@ def find_division_plane(filename):
         fwhm1 = calc_FWHM(profile1)
     except FWHMError:
         fwhm1 = np.nan
+        rejected = True
     try:
         fwhm2 = calc_FWHM(profile2)
     except FWHMError:
         fwhm2 = np.nan
+        rejected = True
 
-    # if fwhm1 / fwhm2 < MIN_FWHM_RATIO:
-    #     print(' - Rejected. Gaussian sigma too large. Possibly aligned along cell body.')
-    #     print(f' - Reason: {fwhm1 / fwhm2:.2f} < MIN_FWHM_RATIO')
-    #     return
+    if (fwhm1 / fwhm2 < MIN_FWHM_RATIO) or np.isnan(fwhm1) or np.isnan(fwhm2):
+        print(' - Rejected. FWHM ratio indicates poor fit.')
+        print(f' - Reason: {fwhm1 / fwhm2:.2f} < MIN_FWHM_RATIO')
+        rejected = True
 
     # Wrap angle.
     theta %= 180
 
-    print(' - Success.')
+    if not rejected:
+        print(' - Success.')
 
-    # Save to disk.
-    df = pd.DataFrame({
-        'cx': [cx],
-        'cy': [cy],
-        'theta': [theta],
-        'fwhm1': [fwhm1],
-        'fwhm2': [fwhm2],
-    })
-    df.to_csv(out_file, sep='\t', index=None)
+        # Save to disk.
+        df = pd.DataFrame({
+            'cx': [cx],
+            'cy': [cy],
+            'theta': [theta],
+            'fwhm1': [fwhm1],
+            'fwhm2': [fwhm2],
+        })
+        df.to_csv(out_file, sep='\t', index=None)
 
+    #
     # Save debugging plot.
+    #
     (x1, y1), (x2, y2) = make_line_endpoints((cx, cy), theta, KYMO_WIDTH)
 
     plt.close('all')
@@ -264,8 +265,9 @@ def find_division_plane(filename):
     plt.plot((x1, x2), (y1, y2))
 
     msg = ''
-    if (fwhm1 / fwhm2 < MIN_FWHM_RATIO) or np.isnan(fwhm1) or np.isnan(fwhm2):
+    if rejected:
         msg += 'REJECTED\n'
+        png_file = f'{basename}.division_plane.rejected.png'
     msg += f'fwhm1 = {fwhm1:.02f}\n'
     msg += f'fwhm2 = {fwhm2:.02f}'
     ax = plt.gca()
