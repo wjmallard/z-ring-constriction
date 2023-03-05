@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import pathlib
+import traceback
 
 from aicsimageio.readers import tiff_reader
 from scipy.ndimage import gaussian_filter
@@ -246,8 +247,17 @@ def extract_division_parameters(filename):
     #
     # Find kymograph peaks via FWMH.
     #
-    peaks = [find_primary_peak(row) for row in kymograph]
-    fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2 = np.array(peaks).T
+    try:
+        peaks = [find_primary_peak(row) for row in kymograph]
+        fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2 = np.array(peaks).T
+    except Exception as ex:
+        print(' - Failed.')
+        print(f' - Reason: {ex}')
+        with open(f'{basename}.division_plane.error', 'w') as fid:
+            print(ex, file=fid)
+            print(file=fid)
+            print(traceback.format_exc(), file=fid)
+        return
 
     #
     # Extract parameters.
@@ -256,11 +266,11 @@ def extract_division_parameters(filename):
         t_start = find_start_of_stable_loc(fwhm_loc)
         t_end = find_end_of_constriction(fwhm_width, fwhm_area, peak_height)
     except Exception as ex:
-        import traceback
         print(' - Failed.')
         print(f' - Reason: {ex}')
         with open(f'{basename}.division_plane.error', 'w') as fid:
             print(ex, file=fid)
+            print(file=fid)
             print(traceback.format_exc(), file=fid)
         return
 
