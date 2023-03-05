@@ -298,7 +298,7 @@ def extract_division_parameters(filename):
     except Exception as ex:
         print(' - Failed.')
         print(f' - Reason: {ex}')
-        with open(f'{basename}.division_plane.error', 'w') as fid:
+        with open(f'{basename}.division_params.error', 'w') as fid:
             print(ex, file=fid)
             print(file=fid)
             print(traceback.format_exc(), file=fid)
