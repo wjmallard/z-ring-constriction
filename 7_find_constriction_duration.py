@@ -274,9 +274,6 @@ def extract_division_parameters(filename):
             print(traceback.format_exc(), file=fid)
         return
 
-    objective = smooth(stretch(peak_height)) - smooth(stretch(fwhm_width))
-    objective = (objective + 1) / 2
-
     print(' - Success.')
 
     # Save to disk.
@@ -314,27 +311,38 @@ def extract_division_parameters(filename):
     w = kymograph.shape[1]
     x = range(w)
     y = [t_end] * w
-    ax.plot(x, y)
+    ax.plot(x, y, color='red', linestyle=':')
 
     #
     # Intensity profile along division plane
     #
     ax = axes[0, 2]
-    ax.plot(kymograph.sum(axis=0))
+    #ax.plot(kymograph.sum(axis=0))
+    ax.plot(smooth(fwhm_loc), label='loc')
+    ax.plot(smooth(fwhm_width), label='width')
+    _, ymax = 0, 100
+    ax.vlines(t_end, 0, ymax, colors='r', linestyles=':', label=f't_end: {t_end}')
+    ax.set_ylim(0, ymax)
+    ax.legend(loc='lower left')
 
     #
     # Less informative Gaussian fit parameters
     #
     ax = axes[0, 3]
-
-    x = np.arange(len(fwhm_loc))
-    y = fwhm_loc
-    spline = UnivariateSpline(x, y, k=1)
-
-    ax.plot(fwhm_loc, label='loc')
-    for knot in spline.get_knots():
-        ax.vlines(knot, 0, KYMO_RESOLUTION, color='red', linestyle=':', linewidth=.5)
+    ax.plot(smooth(peak_height), label='height')
+    _, ymax = ax.get_ylim()
+    ax.vlines(t_end, 0, ymax, colors='r', linestyles=':', label=f't_end: {t_end}')
+    ax.set_ylim(0, None)
     ax.legend(loc='lower left')
+
+    # x = np.arange(len(fwhm_loc))
+    # y = fwhm_loc
+    # spline = UnivariateSpline(x, y, k=1)
+    #
+    # ax.plot(fwhm_loc, label='loc')
+    # for knot in spline.get_knots():
+    #     ax.vlines(knot, 0, KYMO_RESOLUTION, color='red', linestyle=':', linewidth=.5)
+    # ax.legend(loc='lower left')
 
     #
     # More informative Gaussian fit parameters
@@ -343,7 +351,6 @@ def extract_division_parameters(filename):
     ax.plot(smooth(stretch(fwhm_width)), label='width')
     ax.plot(smooth(stretch(peak_height)), label='height')
     ax.plot(smooth(stretch(fwhm_area)), label='area')
-    ax.plot(objective, label='objective', color='k', linestyle=':', alpha=.5)
     ax.vlines(t_start, 0, 1, colors='g', linestyles=':', label=f't_start: {t_start}')
     ax.vlines(t_end, 0, 1, colors='r', linestyles=':', label=f't_end: {t_end}')
     ax.set_ylim(0, 1)
@@ -383,10 +390,10 @@ def show_frame(axes, im, start_frame):
 
         if frame < im.shape[0]:
             ax.imshow(im[frame], **kwargs)
-            ax.text(.02, .01, f'FRAME {frame}',
+            ax.text(.01, .99, f'FRAME {frame}',
                     color='red',
                     horizontalalignment='left',
-                    verticalalignment='bottom',
+                    verticalalignment='top',
                     transform=ax.transAxes)
         else:
             ax.remove()
