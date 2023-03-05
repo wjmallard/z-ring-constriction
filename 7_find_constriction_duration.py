@@ -52,7 +52,7 @@ def stretch(signal):
 
 def smooth(signal):
 
-    out = np.zeros(len(signal))
+    out = np.zeros_like(signal)
     out[SMOOTHING-1:] = moving_average(signal, SMOOTHING)
 
     return out
@@ -199,10 +199,14 @@ def find_start_of_stable_loc(fwhm_loc):
 
     return start_pos
 
-def find_end_of_constriction(fwhm_width, t_start):
+def find_end_of_constriction(fwhm_width, fwhm_area, peak_height):
 
-    y = fwhm_width.copy()
-    y[:t_start] = np.nan
+    x1 = np.argmax(fwhm_area)
+    x2 = np.argmax(peak_height)
+    assert x2 >= x1, 'Peak height does not lag area. Probably a bad kymograph.'
+
+    y = smooth(fwhm_width)
+    y[:x2] = np.nan
 
     t_end = np.nanargmin(y)
 
@@ -250,7 +254,7 @@ def extract_division_parameters(filename):
     #
     try:
         t_start = find_start_of_stable_loc(fwhm_loc)
-        t_end = find_end_of_constriction(fwhm_width, t_start)
+        t_end = find_end_of_constriction(fwhm_width, fwhm_area, peak_height)
     except Exception as ex:
         import traceback
         print(' - Failed.')
