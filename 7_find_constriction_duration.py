@@ -29,7 +29,6 @@ try increasing KYMO_WIDTH.
 SMOOTHING = 8  # rolling average window size
 KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
 KYMO_RESOLUTION = 100  # kymograph interpolation width, in pixels
-MIN_ROS_LENGTH = 5  # min length region of stability
 
 DEBUG = False
 
@@ -185,21 +184,6 @@ def find_primary_peak(signal, half_max=None):
 
     return fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2
 
-def find_start_of_stable_loc(fwhm_loc):
-
-    x = np.arange(len(fwhm_loc))
-    y = fwhm_loc
-
-    # Fit a linear spline, and find all knots.
-    spline = UnivariateSpline(x, y, k=1)
-    knots = spline.get_knots()
-
-    # Find start of first region of stability.
-    selec = np.diff(knots) >= MIN_ROS_LENGTH
-    start_pos = int(knots[:-1][selec][0])
-
-    return start_pos
-
 def find_end_of_constriction(fwhm_width, fwhm_area, peak_height):
 
     x1 = np.argmax(fwhm_area)
@@ -334,15 +318,6 @@ def extract_division_parameters(filename):
     ax.vlines(t_end, 0, ymax, colors='r', linestyles=':', label=f't_end: {t_end}')
     ax.set_ylim(0, None)
     ax.legend(loc='lower left')
-
-    # x = np.arange(len(fwhm_loc))
-    # y = fwhm_loc
-    # spline = UnivariateSpline(x, y, k=1)
-    #
-    # ax.plot(fwhm_loc, label='loc')
-    # for knot in spline.get_knots():
-    #     ax.vlines(knot, 0, KYMO_RESOLUTION, color='red', linestyle=':', linewidth=.5)
-    # ax.legend(loc='lower left')
 
     #
     # More informative Gaussian fit parameters
