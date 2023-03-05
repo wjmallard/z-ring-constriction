@@ -26,9 +26,10 @@ If curve_fit() is throwing these warnings:
  * OptimizeWarning: Covariance of the parameters could not be estimated
 try increasing KYMO_WIDTH.
 '''
-SMOOTHING = 8  # rolling average window size
+SMOOTHING = 5  # rolling average window size
 KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
 KYMO_RESOLUTION = 100  # kymograph interpolation width, in pixels
+MIN_CONSTRICTION_TIME = 15  # min ring constriction duration
 
 DEBUG = False
 
@@ -184,18 +185,78 @@ def find_primary_peak(signal, half_max=None):
 
     return fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2
 
-def find_end_of_constriction(fwhm_width, fwhm_area, peak_height):
+def find_runs(X):
+    '''
+    Find all True runs in a boolean array.
+    '''
+    X = np.array(X).astype(bool)
 
-    x1 = np.argmax(fwhm_area)
-    x2 = np.argmax(peak_height)
-    assert x2 >= x1, 'Peak height does not lag area. Probably a bad kymograph.'
+    false_locs = np.where(~X)[0]
+    false_locs = np.hstack((-1, false_locs, len(X)))
 
+    gap_lens = np.diff(false_locs)
+    gap_ends = np.cumsum(gap_lens)
+
+    run_lens = gap_lens - 1
+    run_locs = np.hstack((0, gap_ends[:-1]))
+
+    locs = run_locs[run_lens > 0]
+    lens = run_lens[run_lens > 0]
+
+    return tuple(zip(locs, lens))
+
+def find_longest_run(X):
+    '''
+    Find the longest True run in a boolean array.
+    '''
+    runs = find_runs(X)
+
+    key = lambda x: (x[1], x[0])
+    runs = sorted(runs, key=key, reverse=True)
+
+    return runs[0]
+
+class ConstrictionError(Exception):
+    def __init__(self, msg):
+        super().__init__(msg)
+
+def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
+
+    #
+    # Find the longest region of decreasing ring width.
+    #
     y = smooth(fwhm_width)
-    y[:x2] = np.nan
+    x = np.arange(len(fwhm_width))
 
-    t_end = np.nanargmin(y)
+    spline = UnivariateSpline(x, y)
+    deriv = spline.derivative()
 
-    return t_end
+    neg_slope = deriv(x) < 0
+    t_start, run_len = find_longest_run(neg_slope)
+    t_end = t_start + run_len
+
+    #
+    # Apply sanity checks.
+    #
+    if t_start <= 0:
+        raise ConstrictionError('Truncated start of ring constriction.')
+
+    if t_end >= len(fwhm_width) - 1:
+        raise ConstrictionError('Truncated end of ring constriction.')
+
+    if t_end - t_start < MIN_CONSTRICTION_TIME:
+        raise ConstrictionError(f'Ring constriction duration too short. ({t_end - t_start})')
+
+    if np.argmax(fwhm_area) > t_end:
+        raise ConstrictionError('Ring constriction ends before total ring intensity peaks.')
+
+    if np.argmax(peak_height) > t_end:
+        raise ConstrictionError('Ring constriction ends before maximum ring intensity peaks.')
+
+    return t_start, t_end
+
+def find_start_of_stable_loc(fwhm_loc):
+    pass
 
 def extract_division_parameters(filename):
 
@@ -247,8 +308,7 @@ def extract_division_parameters(filename):
     # Extract parameters.
     #
     try:
-        t_start = find_start_of_stable_loc(fwhm_loc)
-        t_end = find_end_of_constriction(fwhm_width, fwhm_area, peak_height)
+        t_start, t_end = find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height)
     except Exception as ex:
         print(' - Failed.')
         print(f' - Reason: {ex}')
@@ -294,8 +354,10 @@ def extract_division_parameters(filename):
     ax.imshow(kymograph)
     w = kymograph.shape[1]
     x = range(w)
+    y = [t_start] * w
+    ax.plot(x, y, color='g', linestyle=':')
     y = [t_end] * w
-    ax.plot(x, y, color='red', linestyle=':')
+    ax.plot(x, y, color='r', linestyle=':')
 
     #
     # Intensity profile along division plane
@@ -305,6 +367,7 @@ def extract_division_parameters(filename):
     ax.plot(smooth(fwhm_loc), label='loc')
     ax.plot(smooth(fwhm_width), label='width')
     _, ymax = 0, 100
+    ax.vlines(t_start, 0, ymax, colors='g', linestyles=':', label=f't_start: {t_start}')
     ax.vlines(t_end, 0, ymax, colors='r', linestyles=':', label=f't_end: {t_end}')
     ax.set_ylim(0, ymax)
     ax.legend(loc='lower left')
@@ -315,9 +378,19 @@ def extract_division_parameters(filename):
     ax = axes[0, 3]
     ax.plot(smooth(peak_height), label='height')
     _, ymax = ax.get_ylim()
+    ax.vlines(t_start, 0, ymax, colors='g', linestyles=':', label=f't_start: {t_start}')
     ax.vlines(t_end, 0, ymax, colors='r', linestyles=':', label=f't_end: {t_end}')
     ax.set_ylim(0, None)
     ax.legend(loc='lower left')
+
+    # x = np.arange(len(fwhm_loc))
+    # y = fwhm_loc
+    # spline = UnivariateSpline(x, y, k=1)
+    #
+    # ax.plot(fwhm_loc, label='loc')
+    # for knot in spline.get_knots():
+    #     ax.vlines(knot, 0, KYMO_RESOLUTION, color='red', linestyle=':', linewidth=.5)
+    # ax.legend(loc='lower left')
 
     #
     # More informative Gaussian fit parameters
