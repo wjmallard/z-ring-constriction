@@ -16,8 +16,9 @@ import pathlib
 
 from aicsimageio.readers import tiff_reader
 from scipy.ndimage import gaussian_filter
+from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import RectBivariateSpline
-from scipy.optimize import curve_fit
+from scipy.signal import find_peaks, peak_widths
 
 '''
 If curve_fit() is throwing these warnings:
@@ -27,6 +28,9 @@ try increasing KYMO_WIDTH.
 SMOOTHING = 8  # rolling average window size
 KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
 KYMO_RESOLUTION = 100  # kymograph interpolation width, in pixels
+MIN_ROS_LENGTH = 5  # min length region of stability
+
+DEBUG = False
 
 def load_image(filename):
     return tiff_reader.TiffReader(filename, dim_order='TYX').data
@@ -42,8 +46,8 @@ def stretch(signal):
 
     signal[np.abs(signal) == np.inf] = np.nan
 
-    signal -= signal.min()
-    signal /= signal.max()
+    signal -= np.nanmin(signal)
+    signal /= np.nanmax(signal)
     return signal
 
 def smooth(signal):
@@ -109,23 +113,100 @@ def make_kymograph(stack, line, resolution):
     
     return kymograph
 
-def Gaussian(x, A, mu, sigma, offset):
-    return A * np.exp(-(x - mu) ** 2 / (2. * sigma ** 2)) + offset
+def find_roots_around_peak(roots, peak_loc):
 
-def fit_Gaussian(Y, X=None):
+    s = roots - peak_loc
+    i = np.where(np.sign(s[:1]) != np.sign(s[1:]))[0][0]
 
-    if X is None:
-        X = np.arange(len(Y))
+    r1 = roots[i]
+    r2 = roots[i+1]
 
-    # Initial guess:
-    a = Y.max() - Y.min()
-    m = X.mean()
-    s = X.std()
-    o = Y.min()
+    return r1, r2
 
-    popt, pcov = curve_fit(Gaussian, X, Y, p0=[a, m, s, o])
-    perr = np.sqrt(np.diag(pcov))
-    return popt, perr
+class FWHMError(Exception):
+    def __init__(self, msg):
+        super().__init__(msg)
+
+def find_primary_peak(signal, half_max=None):
+    '''
+    Find the primary peak in a signal via FWHM.
+
+    Allow the user to pass in a global half-max value.
+    If one is not provided, use half-max of the signal.
+
+    Return: fwhm_loc, fwhm_width, fwhm_area, ...
+    '''
+    if half_max is None:
+        half_max = np.max(signal) / 2
+
+    if np.max(signal) < half_max:
+        return [np.nan] * 7
+
+    #
+    # Find peaks taller than half-max. Sort them by height.
+    #
+    peak_locs, props = find_peaks(signal, height=half_max)
+
+    peaks = list(zip(peak_locs, props['peak_heights']))
+    peaks = sorted(peaks, key=lambda x: x[1], reverse=True)
+
+    peak_loc, peak_height = peaks[0]
+
+    #
+    # Find all intercepts of the half-max line.
+    #
+    x = np.arange(len(signal))
+    y = signal - half_max
+
+    spline = UnivariateSpline(x, y)
+    roots = spline.roots()
+
+    if len(roots) == 2:
+        r1, r2 = roots
+    elif len(roots) > 2:
+        if peak_loc < roots.min() or peak_loc > roots.max():
+            raise FWHMError('Max value does not occur between roots.')
+
+        if DEBUG:
+            print(f'Using root disambiguation: {peak_loc} in {roots}')
+        r1, r2 = find_roots_around_peak(roots, peak_loc)
+    else:
+        return [np.nan] * 7
+
+    #
+    # Find FWHM location, width, and area.
+    #
+    fwhm_loc = np.mean((r1, r2))
+    fwhm_width = r2 - r1
+
+    spline = UnivariateSpline(x, signal)
+    fwhm_area = spline.integral(r1, r2)
+
+    return fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2
+
+def find_start_of_stable_loc(fwhm_loc):
+
+    x = np.arange(len(fwhm_loc))
+    y = fwhm_loc
+
+    # Fit a linear spline, and find all knots.
+    spline = UnivariateSpline(x, y, k=1)
+    knots = spline.get_knots()
+
+    # Find start of first region of stability.
+    selec = np.diff(knots) >= MIN_ROS_LENGTH
+    start_pos = int(knots[:-1][selec][0])
+
+    return start_pos
+
+def find_end_of_constriction(fwhm_width, t_start):
+
+    y = fwhm_width.copy()
+    y[:t_start] = np.nan
+
+    t_end = np.nanargmin(y)
+
+    return t_end
 
 def extract_division_parameters(filename):
 
@@ -142,26 +223,51 @@ def extract_division_parameters(filename):
         print(' - Coordinates file missing. Skipping.')
         return
 
+    #
+    # Load tiff stack and ring parameters.
+    #
     im = load_image(filename)
 
     df = pd.read_table(div_file)
     cx, cy, theta = df.iloc[0][['cx', 'cy', 'theta']]
 
+    #
+    # Generate a kymograph.
+    #
     (x1, y1), (x2, y2) = make_line_endpoints((cx, cy), theta, KYMO_WIDTH)
     line = x1, x2, y1, y2
 
     kymograph = make_kymograph(im, line, KYMO_RESOLUTION)
 
-    gaussians = [fit_Gaussian(row) for row in kymograph]
-    A_fit, mu_fit, sigma_fit, offset_fit = np.array(gaussians)[:,0,:].T
+    #
+    # Find kymograph peaks via FWMH.
+    #
+    peaks = [find_primary_peak(row) for row in kymograph]
+    fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2 = np.array(peaks).T
 
-    objective = smooth(stretch(offset_fit)) - smooth(stretch(sigma_fit))
-    t_end = np.argmax(objective)
+    #
+    # Extract parameters.
+    #
+    try:
+        t_start = find_start_of_stable_loc(fwhm_loc)
+        t_end = find_end_of_constriction(fwhm_width, t_start)
+    except Exception as ex:
+        import traceback
+        print(' - Failed.')
+        print(f' - Reason: {ex}')
+        with open(f'{basename}.division_plane.error', 'w') as fid:
+            print(ex, file=fid)
+            print(traceback.format_exc(), file=fid)
+        return
+
+    objective = smooth(stretch(peak_height)) - smooth(stretch(fwhm_width))
+    objective = (objective + 1) / 2
 
     print(' - Success.')
 
     # Save to disk.
     df = pd.DataFrame({
+        't_start': [t_start],
         't_end': [t_end],
     })
     df.to_csv(out_file, sep='\t', index=None)
@@ -206,21 +312,27 @@ def extract_division_parameters(filename):
     # Less informative Gaussian fit parameters
     #
     ax = axes[0, 3]
-    ax.plot(smooth(stretch(A_fit)), label='A')
-    ax.plot(smooth(stretch(mu_fit)), label='mu')
-    ax.vlines(t_end, 0, 1, colors='r', linestyles=':', label=f't_end: {t_end}')
-    ax.set_ylim(0, 1)
+
+    x = np.arange(len(fwhm_loc))
+    y = fwhm_loc
+    spline = UnivariateSpline(x, y, k=1)
+
+    ax.plot(fwhm_loc, label='loc')
+    for knot in spline.get_knots():
+        ax.vlines(knot, 0, KYMO_RESOLUTION, color='red', linestyle=':', linewidth=.5)
     ax.legend(loc='lower left')
 
     #
     # More informative Gaussian fit parameters
     #
     ax = axes[0, 4]
-    ax.plot(smooth(stretch(sigma_fit)), label='sigma')
-    ax.plot(smooth(stretch(offset_fit)), label='offset')
+    ax.plot(smooth(stretch(fwhm_width)), label='width')
+    ax.plot(smooth(stretch(peak_height)), label='height')
+    ax.plot(smooth(stretch(fwhm_area)), label='area')
     ax.plot(objective, label='objective', color='k', linestyle=':', alpha=.5)
-    ax.vlines(t_end, -1, 1, colors='r', linestyles=':', label=f't_end: {t_end}')
-    ax.set_ylim(-1, 1)
+    ax.vlines(t_start, 0, 1, colors='g', linestyles=':', label=f't_start: {t_start}')
+    ax.vlines(t_end, 0, 1, colors='r', linestyles=':', label=f't_end: {t_end}')
+    ax.set_ylim(0, 1)
     ax.legend(loc='lower left')
 
     #
