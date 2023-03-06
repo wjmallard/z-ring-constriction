@@ -21,11 +21,6 @@ from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import RectBivariateSpline
 from scipy.signal import find_peaks, peak_widths
 
-'''
-If curve_fit() is throwing these warnings:
- * OptimizeWarning: Covariance of the parameters could not be estimated
-try increasing KYMO_WIDTH.
-'''
 SMOOTHING = 5  # rolling average window size
 KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
 KYMO_RESOLUTION = 100  # kymograph interpolation width, in pixels
