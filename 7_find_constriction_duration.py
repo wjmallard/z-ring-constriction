@@ -30,6 +30,7 @@ SMOOTHING = 5  # rolling average window size
 KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
 KYMO_RESOLUTION = 100  # kymograph interpolation width, in pixels
 MIN_CONSTRICTION_TIME = 15  # min ring constriction duration
+MIN_WIDTH_REBOUND = 5  # min width increase after constriction, out of KYMO_RESOLUTION
 
 DEBUG = False
 
@@ -246,6 +247,10 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
 
     if t_end - t_start < MIN_CONSTRICTION_TIME:
         raise ConstrictionError(f'Ring constriction duration too short. ({t_end - t_start})')
+
+    max_rebound = np.diff(fwhm_width[t_end:]).cumsum().max()
+    if max_rebound < MIN_WIDTH_REBOUND:
+        raise ConstrictionError(f'Not enough width rebound after end of ring constriction. ({max_rebound:.01f} < {MIN_WIDTH_REBOUND})')
 
     if np.argmax(fwhm_area) > t_end:
         raise ConstrictionError('Ring constriction ends before total ring intensity peaks.')
