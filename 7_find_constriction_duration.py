@@ -365,10 +365,9 @@ def extract_division_parameters(filename):
     ax.plot(x, y, color='r', linestyle=':')
 
     #
-    # Intensity profile along division plane
+    # FWHM peak location and width
     #
     ax = axes[0, 2]
-    #ax.plot(kymograph.sum(axis=0))
     ax.plot(smooth(fwhm_loc), label='loc')
     ax.plot(smooth(fwhm_width), label='width')
     _, ymax = 0, 100
@@ -378,7 +377,7 @@ def extract_division_parameters(filename):
     ax.legend(loc='lower left')
 
     #
-    # Less informative Gaussian fit parameters
+    # FWHM peak height
     #
     ax = axes[0, 3]
     ax.plot(smooth(peak_height), label='height')
@@ -388,17 +387,8 @@ def extract_division_parameters(filename):
     ax.set_ylim(0, None)
     ax.legend(loc='lower left')
 
-    # x = np.arange(len(fwhm_loc))
-    # y = fwhm_loc
-    # spline = UnivariateSpline(x, y, k=1)
     #
-    # ax.plot(fwhm_loc, label='loc')
-    # for knot in spline.get_knots():
-    #     ax.vlines(knot, 0, KYMO_RESOLUTION, color='red', linestyle=':', linewidth=.5)
-    # ax.legend(loc='lower left')
-
-    #
-    # More informative Gaussian fit parameters
+    # Stretched FWHM peak width, height, and area
     #
     ax = axes[0, 4]
     ax.plot(smooth(stretch(fwhm_width)), label='width')
