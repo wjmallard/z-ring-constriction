@@ -131,7 +131,11 @@ def straighten_kymograph(kymograph, npz_file):
     offsets = np.round(center - peak_locs).astype(int)
 
     for i, (row, offset) in enumerate(zip(kymograph, offsets)):
-        kymo_straight[i] = np.roll(row, offset)
+        a = max(0, offset)
+        b = min(len(row), len(row) + offset)
+        c = max(0, -offset)
+        d = min(len(row), len(row) - offset)
+        kymo_straight[i,a:b] = row[c:d]
 
     return kymo_straight
 
