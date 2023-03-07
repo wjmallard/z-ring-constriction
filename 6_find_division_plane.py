@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 import sys
 try:
-    tif_files = sys.argv[1:]
-    assert tif_files
+    xml_files = sys.argv[1:]
+    assert xml_files
 except:
     script = sys.argv[0].split('/')[-1]
-    usage = f'''Usage: {script} TIF_FILE(S)'''
+    usage = f'''Usage: {script} TrackMate.xml'''
     print(usage, file=sys.stderr)
     sys.exit(1)
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import pathlib
+import os
 
 from aicsimageio.readers import ome_tiff_reader
 from scipy.interpolate import UnivariateSpline
@@ -31,7 +31,7 @@ def load_image(filename):
     return ome_tiff_reader.TiffReader(filename, dim_order='TYX').data
 
 def file_exists(filename):
-    return pathlib.Path(filename).exists()
+    return os.path.isfile(filename)
 
 def write_textfile(filename, msg):
     with open(filename, 'w') as fid:
@@ -220,9 +220,9 @@ def maximize_signal_vs_position(data, cx0, cy0, theta):
 
     return result
 
-def find_ring_position(filename):
+def find_ring_position(tif_file):
 
-    basename = filename[:-len('.tif')]
+    basename = tif_file[:-len('.tif')]
     tsv_file = f'{basename}.ring_position.tsv'
     png_file = f'{basename}.ring_position.png'
     out_file = f'{basename}.ring_position.out'
@@ -231,7 +231,7 @@ def find_ring_position(filename):
         print(' - Already processed. Skipping.')
         return
 
-    im = load_image(filename)
+    im = load_image(tif_file)
     im_sum = im.sum(axis=0)
 
     '''
@@ -392,8 +392,33 @@ def find_ring_position(filename):
         png_file = f'{basename}.ring_position.rejected.png'
     fig.savefig(png_file)
 
-for n, filename in enumerate(tif_files):
-    print(f'[{n+1}/{len(tif_files)}] {filename}')
-    find_ring_position(filename)
+def load_track_info(xml_file):
+
+    basename = xml_file[:-len('.xml')]
+    tracks_tsv = f'{basename}.TrackMetadata.tsv'
+
+    df = pd.read_table(tracks_tsv)
+    df = df[['Track_Name', 'TRACK_START']]
+
+    df['TRACK_START'] = df['TRACK_START'].astype(int)
+    df['tif_file'] = basename + '.' + df.Track_Name + '.tif'
+
+    # Skip tracks that were not registered.
+    df = df[df.tif_file.apply(file_exists)]
+    df = df.reset_index(drop=True)
+
+    return df
+
+def find_ring_positions(xml_file):
+
+    df = load_track_info(xml_file)
+
+    for n, row in df.iterrows():
+        print(f'{row.tif_file}')
+        find_ring_position(row.tif_file)
+
+for n, xml_file in enumerate(xml_files):
+    print(f'[{n+1}/{len(xml_files)}] {xml_file}')
+    find_ring_positions(xml_file)
 
 print('Analysis complete.')
