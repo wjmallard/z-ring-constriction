@@ -255,7 +255,7 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
 
     return t_start, t_end
 
-def find_ring_timing(tif_file):
+def find_ring_timing(tif_file, track_start):
 
     basename = tif_file[:-len('.tif')]
     div_file = f'{basename}.ring_position.tsv'
@@ -331,6 +331,7 @@ def find_ring_timing(tif_file):
     df = pd.DataFrame({
         't_start': [t_start],
         't_end': [t_end],
+        'track_start': [track_start],
     })
     df.to_csv(out_file, sep='\t', index=None)
 
@@ -467,7 +468,7 @@ def find_ring_timings(xml_file):
 
     for n, row in df.iterrows():
         print(f'[{n+1}/{len(df)}] {row.tif_file}')
-        find_ring_timing(row.tif_file)
+        find_ring_timing(row.tif_file, row.TRACK_START)
 
 for n, xml_file in enumerate(xml_files):
     print(f'[{n+1}/{len(xml_files)}] {xml_file}')
