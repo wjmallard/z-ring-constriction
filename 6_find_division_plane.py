@@ -14,7 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import pathlib
 
-from aicsimageio.readers import tiff_reader
+from aicsimageio.readers import ome_tiff_reader
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import RectBivariateSpline
 from scipy.optimize import least_squares
@@ -28,7 +28,7 @@ MIN_FWHM_RATIO = 1.5
 DEBUG = False
 
 def load_image(filename):
-    return tiff_reader.TiffReader(filename, dim_order='TYX').data
+    return ome_tiff_reader.TiffReader(filename, dim_order='TYX').data
 
 def file_exists(filename):
     return pathlib.Path(filename).exists()

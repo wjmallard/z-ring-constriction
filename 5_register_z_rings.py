@@ -12,7 +12,7 @@ except:
 import numpy as np
 import pandas as pd
 
-from aicsimageio.readers import TiffReader
+from aicsimageio.readers import ome_tiff_reader
 from aicsimageio.writers import ome_tiff_writer
 from pystackreg import StackReg
 
@@ -21,6 +21,9 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 MARGIN = 2
 MIN_TRACK_LENGTH = 20
+
+def load_image(filename):
+    return ome_tiff_reader.TiffReader(filename, dim_order='TYX').data
 
 def save_image(filename, data):
     ome_tiff_writer.OmeTiffWriter.save(data, filename, dim_order='TYX')
@@ -38,11 +41,11 @@ def isolate_z_rings(xml_file):
     #
     basename = xml_file[:-len('.xml')]
 
-    tif_file = basename + '.tif'
+    tif_file = basename + '.registered.tif'
     tracks_file = basename + '.TrackSpots.tsv'
 
     tracks = pd.read_table(tracks_file)
-    im = TiffReader(tif_file)
+    im = load_image(tif_file)
 
     radius = tracks.RADIUS.median()
 
@@ -119,7 +122,7 @@ def isolate_z_rings(xml_file):
         X = np.max(track.x2 - track.x1)
         Y = np.max(track.y2 - track.y1)
 
-        crop = np.zeros(shape=(T, X, Y), dtype=im.data.dtype)
+        crop = np.zeros(shape=(T, Y, X), dtype=im.dtype)
 
         # Extract frames.
         for _, spot in track.iterrows():
@@ -128,7 +131,7 @@ def isolate_z_rings(xml_file):
             t_dst = spot.t_rel
             x1, x2, y1, y2 = spot[['x1', 'x2', 'y1', 'y2']]
 
-            crop[t_dst] = im.data[t_src,y1:y2,x1:x2]
+            crop[t_dst] = im[t_src,y1:y2,x1:x2]
 
         # Register.
         tmat = sr.register_stack(crop, reference='previous')

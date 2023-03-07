@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import pathlib
 import traceback
 
-from aicsimageio.readers import tiff_reader
+from aicsimageio.readers import ome_tiff_reader
 from scipy.ndimage import gaussian_filter
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import RectBivariateSpline
@@ -30,7 +30,7 @@ MIN_WIDTH_REBOUND = 5  # min width increase after constriction, out of KYMO_RESO
 DEBUG = False
 
 def load_image(filename):
-    return tiff_reader.TiffReader(filename, dim_order='TYX').data
+    return ome_tiff_reader.TiffReader(filename, dim_order='TYX').data
 
 def file_exists(filename):
     return pathlib.Path(filename).exists()
