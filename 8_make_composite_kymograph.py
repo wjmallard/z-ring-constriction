@@ -101,6 +101,7 @@ def find_files_to_composite(tif_files):
         basename = tif_file[:-len('.tif')]
         ring_posn_file = f'{basename}.division_plane.tsv'
         ring_time_file = f'{basename}.division_params.tsv'
+        npz_file = f'{basename}.division_params.npz'
 
         if not file_exists(ring_posn_file): continue
         if not file_exists(ring_time_file): continue
@@ -110,6 +111,7 @@ def find_files_to_composite(tif_files):
 
         df3 = df1.join(df2)
         df3['tif_file'] = tif_file
+        df3['npz_file'] = npz_file
 
         rows.append(df3)
 
@@ -117,6 +119,21 @@ def find_files_to_composite(tif_files):
     df = df.reset_index(drop=True)
 
     return df
+
+def straighten_kymograph(kymograph, npz_file):
+
+    kymo_straight = np.zeros_like(kymograph)
+    npz = np.load(npz_file)
+
+    center = KYMO_RESOLUTION / 2
+    peak_locs = npz['fwhm_loc']
+
+    offsets = np.round(center - peak_locs).astype(int)
+
+    for i, (row, offset) in enumerate(zip(kymograph, offsets)):
+        kymo_straight[i] = np.roll(row, offset)
+
+    return kymo_straight
 
 def generate_composite(df):
 
@@ -133,6 +150,11 @@ def generate_composite(df):
         line = x1, x2, y1, y2
 
         kymograph = make_kymograph(im, line, KYMO_RESOLUTION)
+
+        #
+        # Straighten kymograph.
+        #
+        kymograph = straighten_kymograph(kymograph, row.npz_file)
 
         #
         # Extract it, flip it, add it to the stack.

@@ -260,6 +260,7 @@ def extract_division_parameters(filename):
     basename = filename[:-len('.tif')]
     div_file = f'{basename}.division_plane.tsv'
     out_file = f'{basename}.division_params.tsv'
+    npz_file = f'{basename}.division_params.npz'
     png_file = f'{basename}.division_params.png'
 
     if file_exists(out_file):
@@ -300,6 +301,15 @@ def extract_division_parameters(filename):
             print(file=fid)
             print(traceback.format_exc(), file=fid)
         return
+
+    np.savez(npz_file,
+             fwhm_loc=fwhm_loc,
+             fwhm_width=fwhm_width,
+             fwhm_area=fwhm_area,
+             peak_loc=peak_loc,
+             peak_height=peak_height,
+             r1=r1,
+             r2=r2)
 
     #
     # Extract parameters.
