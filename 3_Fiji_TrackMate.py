@@ -21,7 +21,7 @@ from fiji.plugin.trackmate.features import FeatureFilter
 import os
 from glob import glob
 
-INPUT_PATTERN = '*__registered.tif'
+INPUT_PATTERN = '*.registered.tif'
 
 DetectorSettings = {
     'TARGET_CHANNEL': 1,

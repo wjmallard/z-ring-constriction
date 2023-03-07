@@ -93,5 +93,5 @@ for n, filename in enumerate(filenames):
     
     # Save to disk.
     basename = filename.rsplit('.', 1)[0]
-    tif_out = f'{basename}__registered.tif'
+    tif_out = f'{basename}.registered.tif'
     save_image(tif_out, im)
