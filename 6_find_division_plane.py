@@ -297,7 +297,7 @@ def find_division_plane(filename):
 
     if (fwhm_0deg / fwhm_90deg < MIN_FWHM_RATIO) or np.isnan(fwhm_0deg) or np.isnan(fwhm_90deg):
         print(' - Rejected. FWHM ratio indicates poor fit.')
-        print(f' - Reason: {fwhm_0deg / fwhm_90deg:.2f} < MIN_FWHM_RATIO')
+        print(f' - Reason: {fwhm_0deg / fwhm_90deg:.2f} < {MIN_FWHM_RATIO}')
         write_textfile(out_file, 'Rejected.')
         rejected = True
 
