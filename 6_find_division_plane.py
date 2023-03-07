@@ -398,9 +398,7 @@ def load_track_info(xml_file):
     tracks_tsv = f'{basename}.TrackMetadata.tsv'
 
     df = pd.read_table(tracks_tsv)
-    df = df[['Track_Name', 'TRACK_START']]
 
-    df['TRACK_START'] = df['TRACK_START'].astype(int)
     df['tif_file'] = basename + '.' + df.Track_Name + '.tif'
 
     # Skip tracks that were not registered.
@@ -414,7 +412,7 @@ def find_ring_positions(xml_file):
     df = load_track_info(xml_file)
 
     for n, row in df.iterrows():
-        print(f'{row.tif_file}')
+        print(f'[{n+1}/{len(df)}] {row.tif_file}')
         find_ring_position(row.tif_file)
 
 for n, xml_file in enumerate(xml_files):

@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 import sys
 try:
-    tif_files = sys.argv[1:]
-    assert tif_files
+    xml_files = sys.argv[1:]
+    assert xml_files
 except:
     script = sys.argv[0].split('/')[-1]
-    usage = f'''Usage: {script} TIF_FILE(S)'''
+    usage = f'''Usage: {script} TrackMate.xml'''
     print(usage, file=sys.stderr)
     sys.exit(1)
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import pathlib
+import os
 import traceback
 
 from aicsimageio.readers import ome_tiff_reader
@@ -33,7 +33,7 @@ def load_image(filename):
     return ome_tiff_reader.TiffReader(filename, dim_order='TYX').data
 
 def file_exists(filename):
-    return pathlib.Path(filename).exists()
+    return os.path.isfile(filename)
 
 def moving_average(x, win):
     return np.convolve(x, np.ones(win), 'valid') / win
@@ -255,9 +255,9 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
 
     return t_start, t_end
 
-def extract_division_parameters(filename):
+def find_ring_timing(tif_file):
 
-    basename = filename[:-len('.tif')]
+    basename = tif_file[:-len('.tif')]
     div_file = f'{basename}.ring_position.tsv'
     out_file = f'{basename}.ring_timing.tsv'
     npz_file = f'{basename}.ring_timing.npz'
@@ -274,7 +274,7 @@ def extract_division_parameters(filename):
     #
     # Load tiff stack and ring parameters.
     #
-    im = load_image(filename)
+    im = load_image(tif_file)
 
     df = pd.read_table(div_file)
     cx, cy, theta = df.iloc[0][['cx', 'cy', 'theta']]
@@ -443,8 +443,34 @@ def show_frame(axes, im, start_frame):
         else:
             ax.remove()
 
-for n, filename in enumerate(tif_files):
-    print(f'[{n+1}/{len(tif_files)}] {filename}')
-    extract_division_parameters(filename)
+def load_track_info(xml_file):
+
+    basename = xml_file[:-len('.xml')]
+    tracks_tsv = f'{basename}.TrackMetadata.tsv'
+
+    df = pd.read_table(tracks_tsv)
+    df = df[['Track_Name', 'TRACK_START']]
+
+    df['TRACK_START'] = df['TRACK_START'].astype(int)
+    df['tif_file'] = basename + '.' + df.Track_Name + '.tif'
+    df['ring_pos_tsv'] = basename + '.' + df.Track_Name +  '.ring_position.tsv'
+
+    # Skip tracks where finding the ring position failed.
+    df = df[df.ring_pos_tsv.apply(file_exists)]
+    df = df.reset_index(drop=True)
+
+    return df
+
+def find_ring_timings(xml_file):
+
+    df = load_track_info(xml_file)
+
+    for n, row in df.iterrows():
+        print(f'[{n+1}/{len(df)}] {row.tif_file}')
+        find_ring_timing(row.tif_file)
+
+for n, xml_file in enumerate(xml_files):
+    print(f'[{n+1}/{len(xml_files)}] {xml_file}')
+    find_ring_timings(xml_file)
 
 print('Analysis complete.')
