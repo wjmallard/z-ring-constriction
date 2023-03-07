@@ -255,9 +255,6 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
 
     return t_start, t_end
 
-def find_start_of_stable_loc(fwhm_loc):
-    pass
-
 def extract_division_parameters(filename):
 
     basename = filename[:-len('.tif')]
