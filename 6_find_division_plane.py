@@ -220,12 +220,12 @@ def maximize_signal_vs_position(data, cx0, cy0, theta):
 
     return result
 
-def find_division_plane(filename):
+def find_ring_position(filename):
 
     basename = filename[:-len('.tif')]
-    tsv_file = f'{basename}.division_plane.tsv'
-    png_file = f'{basename}.division_plane.png'
-    out_file = f'{basename}.division_plane.out'
+    tsv_file = f'{basename}.ring_position.tsv'
+    png_file = f'{basename}.ring_position.png'
+    out_file = f'{basename}.ring_position.out'
 
     if file_exists(out_file):
         print(' - Already processed. Skipping.')
@@ -389,11 +389,11 @@ def find_division_plane(filename):
     fig.tight_layout()
 
     if rejected:
-        png_file = f'{basename}.division_plane.rejected.png'
+        png_file = f'{basename}.ring_position.rejected.png'
     fig.savefig(png_file)
 
 for n, filename in enumerate(tif_files):
     print(f'[{n+1}/{len(tif_files)}] {filename}')
-    find_division_plane(filename)
+    find_ring_position(filename)
 
 print('Analysis complete.')

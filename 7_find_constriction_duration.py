@@ -258,10 +258,10 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
 def extract_division_parameters(filename):
 
     basename = filename[:-len('.tif')]
-    div_file = f'{basename}.division_plane.tsv'
-    out_file = f'{basename}.division_params.tsv'
-    npz_file = f'{basename}.division_params.npz'
-    png_file = f'{basename}.division_params.png'
+    div_file = f'{basename}.ring_position.tsv'
+    out_file = f'{basename}.ring_timing.tsv'
+    npz_file = f'{basename}.ring_timing.npz'
+    png_file = f'{basename}.ring_timing.png'
 
     if file_exists(out_file):
         print(' - Division parameters file already exists. Skipping.')
@@ -296,7 +296,7 @@ def extract_division_parameters(filename):
     except Exception as ex:
         print(' - Failed.')
         print(f' - Reason: {ex}')
-        with open(f'{basename}.division_params.error', 'w') as fid:
+        with open(f'{basename}.ring_timing.error', 'w') as fid:
             print(ex, file=fid)
             print(file=fid)
             print(traceback.format_exc(), file=fid)
@@ -319,7 +319,7 @@ def extract_division_parameters(filename):
     except Exception as ex:
         print(' - Failed.')
         print(f' - Reason: {ex}')
-        with open(f'{basename}.division_plane.error', 'w') as fid:
+        with open(f'{basename}.ring_timing.error', 'w') as fid:
             print(ex, file=fid)
             print(file=fid)
             print(traceback.format_exc(), file=fid)
