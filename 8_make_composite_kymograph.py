@@ -187,6 +187,10 @@ def load_track_info(xml_file):
 
         rows.append(merged_data)
 
+    if len(df) == 0:
+        print(f' - Warning: No tracks found for {xml_file}')
+        return None
+
     ring_data = pd.concat(rows)
 
     #
@@ -198,9 +202,16 @@ def load_track_info(xml_file):
     return df
 
 def extract_basename(xml_file):
-    return xml_file.rsplit('_s', 1)[0]
+
+    basename = xml_file[:-len('.xml')]
+
+    if '_s' in basename:
+        return xml_file.rsplit('_s', 1)[0]
+    else:
+        return xml_file
 
 def extract_field(xml_file):
+    if '_s' not in xml_file: return 1
     return int(xml_file.rsplit('_s', 1)[1].split('.', 1)[0])
 
 def extract_replicate(xml_file):
@@ -208,17 +219,20 @@ def extract_replicate(xml_file):
 
 def compile_track_info(xml_files):
 
+    print(f'Found {len(xml_files)} TrackMate runs.')
+
     dfs = []
 
     for xml_file in xml_files:
 
         df = load_track_info(xml_file)
+        if df is None: continue
 
         df.index.name = 'n'
         df = df.reset_index()
 
         df['xml_file'] = xml_file
-        df['basename'] = df.tif_file.apply(extract_basename)
+        df['basename'] = df.xml_file.apply(extract_basename)
         df['replicate'] = df.tif_file.apply(extract_replicate)
         df['field'] = df.tif_file.apply(extract_field)
 
@@ -227,24 +241,27 @@ def compile_track_info(xml_files):
     df = pd.concat(dfs)
     df = df.reset_index(drop=True)
 
+    df['num_fields'] = df.groupby(['basename', 'replicate']).field.transform(lambda s: s.nunique())
+
+    print(f'Found {len(df)} images in total.')
+    print()
+
     return df
 
 #
 # Main()
 #
 experiments = compile_track_info(xml_files)
-print(f'Found {len(xml_files)} TrackMate runs with {len(experiments)} images to composite.')
-print()
 
 for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
 
-    print(f'Processing: {basename} [{len(df)} images]')
+    print(f'Processing: {basename}')
+    print(f' - {len(df)} images from {df.iloc[0].num_fields} fields')
 
-    print('Generating composite.')
+    print(' - Generating composite.')
     composite = generate_composite(df)
-    print('Done.')
 
-    print('Writing to disk.')
+    print(' - Writing to disk.')
     out_file = df.iloc[0].basename + '.composite.tif'
     save_image(out_file, composite)
 
