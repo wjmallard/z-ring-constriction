@@ -248,6 +248,17 @@ def compile_track_info(xml_files):
 
     return df
 
+def write_metadata_tsv(outfile, df):
+
+    num_images = len(df)
+    num_fields = df.iloc[0].num_fields
+
+    df = pd.DataFrame({
+        'num_images': [num_images],
+        'num_fields': [num_fields],
+    })
+    df.to_csv(out_file, sep='\t', index=None)
+
 #
 # Main()
 #
@@ -264,6 +275,9 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
     print(' - Writing to disk.')
     out_file = df.iloc[0].basename + '.composite.tif'
     save_image(out_file, composite)
+
+    out_file = df.iloc[0].basename + '.composite.tsv'
+    write_metadata_tsv(out_file, df)
 
 print()
 print('Composite complete.')
