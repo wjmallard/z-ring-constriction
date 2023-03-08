@@ -1,20 +1,18 @@
 #!/usr/bin/env python
 import sys
 try:
-    tif_files = sys.argv[1:]
-    assert tif_files
+    xml_files = sys.argv[1:]
+    assert xml_files
 except:
     script = sys.argv[0].split('/')[-1]
-    usage = f'''Usage: {script} TIF_FILE(S)'''
+    usage = f'''Usage: {script} TrackMate.xml'''
     print(usage, file=sys.stderr)
     sys.exit(1)
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import pathlib
-import traceback
-from glob import glob
+import os
 
 from aicsimageio.readers import ome_tiff_reader
 from aicsimageio.writers import ome_tiff_writer
@@ -34,7 +32,7 @@ def save_image(filename, data):
     ome_tiff_writer.OmeTiffWriter.save(data, filename, dim_order='YX')
 
 def file_exists(filename):
-    return pathlib.Path(filename).exists()
+    return os.path.isfile(filename)
 
 def make_line_endpoints(center, theta, length):
     '''
@@ -92,34 +90,6 @@ def make_kymograph(stack, line, resolution):
 
     return kymograph
 
-def find_files_to_composite(tif_files):
-
-    rows = []
-
-    for tif_file in tif_files:
-
-        basename = tif_file[:-len('.tif')]
-        ring_posn_file = f'{basename}.division_plane.tsv'
-        ring_time_file = f'{basename}.division_params.tsv'
-        npz_file = f'{basename}.division_params.npz'
-
-        if not file_exists(ring_posn_file): continue
-        if not file_exists(ring_time_file): continue
-
-        df1 = pd.read_table(ring_posn_file)[['cx', 'cy', 'theta']]
-        df2 = pd.read_table(ring_time_file)[['t_start', 't_end']]
-
-        df3 = df1.join(df2)
-        df3['tif_file'] = tif_file
-        df3['npz_file'] = npz_file
-
-        rows.append(df3)
-
-    df = pd.concat(rows)
-    df = df.reset_index(drop=True)
-
-    return df
-
 def straighten_kymograph(kymograph, npz_file):
 
     kymo_straight = np.zeros_like(kymograph)
@@ -158,7 +128,7 @@ def generate_composite(df):
         #
         # Straighten kymograph.
         #
-        kymograph = straighten_kymograph(kymograph, row.npz_file)
+        kymograph = straighten_kymograph(kymograph, row.ring_time_npz)
 
         #
         # Extract it, flip it, add it to the stack.
@@ -177,16 +147,60 @@ def generate_composite(df):
 
     return composite
 
-def construct_filename(tif_files):
+def load_track_info(xml_file):
 
-    basenames = {filename.rsplit('_s', 1)[0] for filename in tif_files}
-    assert len(basenames) == 1
-    basename = basenames.pop()
-    out_file = f'{basename}.composite.tif'
+    basename = xml_file[:-len('.xml')]
 
-    return out_file
+    tracks_tsv = f'{basename}.TrackMetadata.tsv'
 
-df = find_files_to_composite(tif_files)
+    df = pd.read_table(tracks_tsv)
+    df = df[['Track_Name']]
+
+    #
+    # Construct relevant filenames.
+    #
+    df['tif_file'] = basename + '.' + df.Track_Name + '.tif'
+    df['ring_posn_tsv'] = basename + '.' + df.Track_Name +  '.ring_position.tsv'
+    df['ring_time_tsv'] = basename + '.' + df.Track_Name +  '.ring_timing.tsv'
+    df['ring_time_npz'] = basename + '.' + df.Track_Name +  '.ring_timing.npz'
+    df['composite_tif'] = basename + '.composite.tif'
+
+    #
+    # Skip tracks where finding the ring position or constriction time failed.
+    #
+    df = df[df.ring_posn_tsv.apply(file_exists)]
+    df = df[df.ring_time_tsv.apply(file_exists)]
+    df = df[df.ring_time_npz.apply(file_exists)]
+    df = df.reset_index(drop=True)
+
+    #
+    # Extract ring position and constriction timing info from tsv files.
+    #
+    rows = []
+
+    for _, row in df.iterrows():
+
+        posn_data = pd.read_table(row.ring_posn_tsv)[['cx', 'cy', 'theta']]
+        time_data = pd.read_table(row.ring_time_tsv)[['t_start', 't_end', 'track_start']]
+
+        merged_data = posn_data.join(time_data)
+        merged_data['Track_Name'] = row.Track_Name
+
+        rows.append(merged_data)
+
+    ring_data = pd.concat(rows)
+
+    #
+    # Merge into main table.
+    #
+    df = pd.merge(df, ring_data, how='left', on='Track_Name')
+    df = df.drop(['ring_posn_tsv', 'ring_time_tsv'], axis=1)
+
+    return df
+
+xml_file = xml_files[0]
+
+df = load_track_info(xml_file)
 print(f'Found {len(df)} images to composite.')
 
 print('Generating composite.')
@@ -194,7 +208,7 @@ composite = generate_composite(df)
 print('Done.')
 
 print('Writing to disk.')
-out_file = construct_filename(tif_files)
+out_file = df.iloc[0].composite_tif
 save_image(out_file, composite)
 
 print('Composite complete.')
