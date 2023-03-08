@@ -113,7 +113,7 @@ def generate_composite(df):
 
     kymo_stack = np.zeros((len(df), MAX_KYMO_DURATION, KYMO_RESOLUTION), dtype=float)
 
-    for n, row in df.iterrows():
+    for n, (_, row) in enumerate(df.iterrows()):
 
         im = load_image(row.tif_file)
 
@@ -163,7 +163,6 @@ def load_track_info(xml_file):
     df['ring_posn_tsv'] = basename + '.' + df.Track_Name +  '.ring_position.tsv'
     df['ring_time_tsv'] = basename + '.' + df.Track_Name +  '.ring_timing.tsv'
     df['ring_time_npz'] = basename + '.' + df.Track_Name +  '.ring_timing.npz'
-    df['composite_tif'] = basename + '.composite.tif'
 
     #
     # Skip tracks where finding the ring position or constriction time failed.
@@ -198,17 +197,56 @@ def load_track_info(xml_file):
 
     return df
 
-xml_file = xml_files[0]
+def extract_basename(xml_file):
+    return xml_file.rsplit('_s', 1)[0]
 
-df = load_track_info(xml_file)
-print(f'Found {len(df)} images to composite.')
+def extract_field(xml_file):
+    return int(xml_file.rsplit('_s', 1)[1].split('.', 1)[0])
 
-print('Generating composite.')
-composite = generate_composite(df)
-print('Done.')
+def extract_replicate(xml_file):
+    return int(xml_file.rsplit(' rep', 1)[1].split('_', 1)[0])
 
-print('Writing to disk.')
-out_file = df.iloc[0].composite_tif
-save_image(out_file, composite)
+def compile_track_info(xml_files):
 
+    dfs = []
+
+    for xml_file in xml_files:
+
+        df = load_track_info(xml_file)
+
+        df.index.name = 'n'
+        df = df.reset_index()
+
+        df['xml_file'] = xml_file
+        df['basename'] = df.tif_file.apply(extract_basename)
+        df['replicate'] = df.tif_file.apply(extract_replicate)
+        df['field'] = df.tif_file.apply(extract_field)
+
+        dfs.append(df)
+
+    df = pd.concat(dfs)
+    df = df.reset_index(drop=True)
+
+    return df
+
+#
+# Main()
+#
+experiments = compile_track_info(xml_files)
+print(f'Found {len(xml_files)} TrackMate runs with {len(experiments)} images to composite.')
+print()
+
+for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
+
+    print(f'Processing: {basename} [{len(df)} images]')
+
+    print('Generating composite.')
+    composite = generate_composite(df)
+    print('Done.')
+
+    print('Writing to disk.')
+    out_file = df.iloc[0].basename + '.composite.tif'
+    save_image(out_file, composite)
+
+print()
 print('Composite complete.')
