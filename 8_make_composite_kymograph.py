@@ -206,9 +206,9 @@ def extract_basename(xml_file):
     basename = xml_file[:-len('.xml')]
 
     if '_s' in basename:
-        return xml_file.rsplit('_s', 1)[0]
+        return basename.rsplit('_s', 1)[0]
     else:
-        return xml_file
+        return basename
 
 def extract_field(xml_file):
     if '_s' not in xml_file: return 1
