@@ -181,6 +181,14 @@ def find_primary_peak(signal, half_max=None):
 
     return fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2
 
+def find_kymograph_peaks(kymograph):
+    '''
+    Returns: 2D numpy array with the following rows:
+     - fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2
+    '''
+    peaks = [find_primary_peak(row) for row in kymograph]
+    return np.array(peaks).T
+
 def find_runs(X):
     '''
     Find all True runs in a boolean array.
@@ -291,8 +299,7 @@ def find_ring_timing(tif_file, track_start):
     # Find kymograph peaks via FWMH.
     #
     try:
-        peaks = [find_primary_peak(row) for row in kymograph]
-        fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2 = np.array(peaks).T
+        result = find_kymograph_peaks(kymograph)
     except Exception as ex:
         print(' - Failed.')
         print(f' - Reason: {ex}')
@@ -301,6 +308,8 @@ def find_ring_timing(tif_file, track_start):
             print(file=fid)
             print(traceback.format_exc(), file=fid)
         return
+
+    fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2 = result
 
     np.savez(npz_file,
              fwhm_loc=fwhm_loc,
