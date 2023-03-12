@@ -2,6 +2,86 @@ import numpy as np
 
 from scipy.interpolate import RectBivariateSpline
 
+def make_rotated_meshgrid(xspan, yspan, theta=0):
+    '''
+    Generate a meshgrid and rotate it clockwise by theta.
+
+    Adapted from: https://stackoverflow.com/a/29709641
+
+    Parameters
+    ----------
+    xspan : np.array, float
+        x-coords of the unrotated grid.
+    yspan : np.array, float
+        y-coords of the unrotated grid.
+    theta : float
+        Angle, in radians, clockwise from the x-axis.
+
+    Returns
+    -------
+    2D np.array, 2D np.array
+        X, Y. xy-coords for each point in the generated meshgrid.
+
+    '''
+    xx, yy = np.meshgrid(xspan, yspan)
+
+    rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)],
+                                [np.sin(theta),  np.cos(theta)]])
+
+    return np.einsum('ji, mni -> jmn', rotation_matrix, np.dstack([xx, yy]))
+
+def make_mesh(center, theta, length, width, res_factor=1):
+    '''
+    Generate a meshgrid with the specified parameters.
+
+    Parameters
+    ----------
+    center : 2-tuple, float
+        Coordinates of the center of the grid.
+    theta : float
+        Angle of the line, in degrees, clockwise from the x-axis.
+    length : int
+        Length, in pixels.
+    width : int
+        Width, in pixels.
+    res_factor : int
+        Resolution factor. Number of interpolated points per pixel.
+
+    Returns
+    -------
+    2D np.array, 2D np.array
+        X, Y. xy-coords for each point in the generated meshgrid.
+
+    '''
+    cx, cy = center
+    theta = np.radians(theta)
+
+    # Number of points to interpolate:
+    x_pts = int(np.round(res_factor * length))
+    y_pts = int(np.round(res_factor * width))
+
+    # Handle the edge case of a 1D grid.
+    #
+    # If width (or length) is set to 1px,
+    # linspace() will give a single point:
+    # -W/2 (or -L/2), and the 1D grid will
+    # be offset from the midline.
+    if x_pts > 1:
+        x = np.linspace(-length/2, length/2, x_pts)
+    else:
+        x = np.zeros(2, dtype=float)
+
+    if y_pts > 1:
+        y = np.linspace(-width/2, width/2, y_pts)
+    else:
+        y = np.zeros(2, dtype=float)
+
+    # Generate a grid centered at the origin.
+    X, Y = make_rotated_meshgrid(x, y, theta)
+
+    # Shift it to the specified midpoint.
+    return X + cx, Y + cy
+
 def make_line_endpoints(center, theta, length):
     '''
     Generate endpoint xy-coords of a line with the specified parameters.
@@ -12,7 +92,7 @@ def make_line_endpoints(center, theta, length):
         Coordinates of the center of the line.
     theta : float
         Angle of the line, in degrees, clockwise from the x-axis.
-    length : float
+    length : int
         Length, in pixels.
 
     Returns
