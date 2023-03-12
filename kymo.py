@@ -69,12 +69,12 @@ def make_mesh(center, theta, length, width, res_factor=1):
     if x_pts > 1:
         x = np.linspace(-length/2, length/2, x_pts)
     else:
-        x = np.zeros(2, dtype=float)
+        x = np.zeros(1, dtype=float)
 
     if y_pts > 1:
         y = np.linspace(-width/2, width/2, y_pts)
     else:
-        y = np.zeros(2, dtype=float)
+        y = np.zeros(1, dtype=float)
 
     # Generate a grid centered at the origin.
     X, Y = make_rotated_meshgrid(x, y, theta)
