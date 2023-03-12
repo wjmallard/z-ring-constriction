@@ -17,11 +17,10 @@ from util import load_stack
 from util import save_image
 from util import file_exists
 
-from kymo import make_line_endpoints
 from kymo import make_kymograph
 
 KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
-KYMO_RESOLUTION = 100  # kymograph interpolation width, in pixels
+KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
 MAX_KYMO_DURATION = 100  # max time backwards from t_end
 
 def straighten_kymograph(kymograph, npz_file):
@@ -29,7 +28,7 @@ def straighten_kymograph(kymograph, npz_file):
     kymo_straight = np.zeros_like(kymograph)
     npz = np.load(npz_file)
 
-    center = KYMO_RESOLUTION / 2
+    center = KYMO_WIDTH * KYMO_RESOLUTION / 2
     peak_locs = npz['fwhm_loc']
 
     offsets = np.round(center - peak_locs).astype(int)
@@ -45,7 +44,7 @@ def straighten_kymograph(kymograph, npz_file):
 
 def generate_composite(df):
 
-    kymo_stack = np.zeros((len(df), MAX_KYMO_DURATION, KYMO_RESOLUTION), dtype=float)
+    kymo_stack = np.zeros((len(df), MAX_KYMO_DURATION, KYMO_WIDTH * KYMO_RESOLUTION), dtype=float)
 
     for n, (_, row) in enumerate(df.iterrows()):
 
@@ -54,10 +53,7 @@ def generate_composite(df):
         #
         # Generate kymograph.
         #
-        (x1, y1), (x2, y2) = make_line_endpoints((row.cx, row.cy), row.theta, KYMO_WIDTH)
-        line = x1, x2, y1, y2
-
-        kymograph = make_kymograph(im, line, KYMO_RESOLUTION)
+        kymograph = make_kymograph(im, row.cx, row.cy, row.theta, KYMO_WIDTH, KYMO_RESOLUTION)
 
         #
         # Straighten kymograph.

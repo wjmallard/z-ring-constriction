@@ -22,16 +22,16 @@ from util import smooth
 from util import stretch
 from util import find_longest_run
 
-from kymo import make_line_endpoints
+from kymo import make_line
 from kymo import make_kymograph
 
 from fwhm import find_kymograph_peaks
 
 SMOOTHING = 5  # rolling average window size
 KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
-KYMO_RESOLUTION = 100  # kymograph interpolation width, in pixels
+KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
 MIN_CONSTRICTION_TIME = 15  # min ring constriction duration
-MIN_WIDTH_REBOUND = 5  # min width increase after constriction, out of KYMO_RESOLUTION
+MIN_WIDTH_REBOUND = 5  # Min width increase after constriction, out of KYMO_WIDTH * KYMO_RESOLUTION.
 
 DEBUG = False
 
@@ -105,10 +105,7 @@ def find_ring_timing(tif_file, track_start):
     #
     # Generate a kymograph.
     #
-    (x1, y1), (x2, y2) = make_line_endpoints((cx, cy), theta, KYMO_WIDTH)
-    line = x1, x2, y1, y2
-
-    kymograph = make_kymograph(im, line, KYMO_RESOLUTION)
+    kymograph = make_kymograph(im, cx, cy, theta, KYMO_WIDTH, KYMO_RESOLUTION)
 
     #
     # Find kymograph peaks via FWMH.
@@ -177,7 +174,8 @@ def find_ring_timing(tif_file, track_start):
     ax = axes[0, 0]
     ax.imshow(im.sum(axis=0))
     ax.scatter(cx, cy, color='r', marker='s')
-    ax.plot((x1, x2), (y1, y2))
+    X, Y = make_line((cx, cy), theta, KYMO_WIDTH, KYMO_RESOLUTION)
+    ax.plot(X, Y)
 
     #
     # Kymograph along division plane
@@ -197,7 +195,7 @@ def find_ring_timing(tif_file, track_start):
     ax = axes[0, 2]
     ax.plot(smooth(fwhm_loc, SMOOTHING), label='loc')
     ax.plot(smooth(fwhm_width, SMOOTHING), label='width')
-    _, ymax = 0, 100
+    _, ymax = 0, KYMO_WIDTH * KYMO_RESOLUTION
     ax.vlines(t_start, 0, ymax, colors='g', linestyles=':', label=f't_start: {t_start}')
     ax.vlines(t_end, 0, ymax, colors='r', linestyles=':', label=f't_end: {t_end}')
     ax.set_ylim(0, ymax)

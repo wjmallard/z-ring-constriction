@@ -20,7 +20,7 @@ from util import load_stack
 from util import file_exists
 from util import write_textfile
 
-from kymo import make_line_endpoints
+from kymo import make_line
 from kymo import find_profile
 
 from fwhm import find_FWHM_intercepts
@@ -29,8 +29,8 @@ from fwhm import calc_FWHM_silent
 from fwhm import FWHMError
 
 KERNEL_SIZE = 3  # Should be about 1/4 the feature size.
-KYMO_WIDTH = 12
-KYMO_RESOLUTION = 100
+KYMO_WIDTH = 12  # Length of kymograph line, in pixels.
+KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
 MIN_FWHM_RATIO = 1.5
 
 DEBUG = False
@@ -47,10 +47,10 @@ def find_centroid(data):
     '''
     Y, X = np.indices(data.shape)
 
-    cy = (Y * data).sum() / data.sum()
     cx = (X * data).sum() / data.sum()
+    cy = (Y * data).sum() / data.sum()
 
-    return cy, cx
+    return cx, cy
 
 '''
 Second round of ring position optimization:
@@ -74,7 +74,8 @@ def maximize_FWHM_vs_angle(data, cx, cy, theta0):
     '''
     p0 = [theta0]
 
-    obj_func = lambda p: KYMO_RESOLUTION - calc_FWHM_along_line(data, cx, cy, *p, KYMO_WIDTH, KYMO_RESOLUTION)
+    max_val = KYMO_RESOLUTION * KYMO_WIDTH
+    obj_func = lambda p: max_val - calc_FWHM_along_line(data, cx, cy, *p, KYMO_WIDTH, KYMO_RESOLUTION)
 
     result = least_squares(obj_func, p0)
 
@@ -96,8 +97,9 @@ def maximize_signal_vs_position(data, cx0, cy0, theta):
     '''
     For a fixed angle theta, find a center point (cx, cy) that maximizes FWHM.
     '''
-    stdev = int(np.round(KYMO_RESOLUTION * KERNEL_SIZE / len(data)))
-    window = gaussian(KYMO_RESOLUTION, std=stdev)
+    width = KYMO_RESOLUTION * KYMO_WIDTH
+    stdev = KYMO_RESOLUTION * KERNEL_SIZE
+    window = gaussian(width, std=stdev)
 
     p0 = [cx0, cy0]
 
@@ -222,13 +224,13 @@ def find_ring_position(tif_file):
 
     ax.imshow(im_sum, cmap='Greys_r')
 
-    (x1, y1), (x2, y2) = make_line_endpoints((cx1, cy1), theta1, KYMO_WIDTH)
+    X, Y = make_line((cx1, cy1), theta1, KYMO_WIDTH, KYMO_RESOLUTION)
     ax.scatter(cx1, cy1, color='r', marker='s')
-    ax.plot((x1, x2), (y1, y2), label='v1')
+    ax.plot(X, Y, label='v1')
 
-    (x1, y1), (x2, y2) = make_line_endpoints((cx2, cy2), theta1, KYMO_WIDTH)
+    X, Y = make_line((cx2, cy2), theta1, KYMO_WIDTH, KYMO_RESOLUTION)
     ax.scatter(cx2, cy2, color='g', marker='s')
-    ax.plot((x1, x2), (y1, y2), label='v2')
+    ax.plot(X, Y, label='v2')
 
     if rejected:
         msg = 'REJECTED'

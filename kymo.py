@@ -2,85 +2,28 @@ import numpy as np
 
 from scipy.interpolate import RectBivariateSpline
 
-def make_rotated_meshgrid(xspan, yspan, theta=0):
-    '''
-    Generate a meshgrid and rotate it clockwise by theta.
+def make_line(center, theta, length, resolution=1):
 
-    Adapted from: https://stackoverflow.com/a/29709641
-
-    Parameters
-    ----------
-    xspan : np.array, float
-        x-coords of the unrotated grid.
-    yspan : np.array, float
-        y-coords of the unrotated grid.
-    theta : float
-        Angle, in radians, clockwise from the x-axis.
-
-    Returns
-    -------
-    2D np.array, 2D np.array
-        X, Y. xy-coords for each point in the generated meshgrid.
-
-    '''
-    xx, yy = np.meshgrid(xspan, yspan)
-
-    rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)],
-                                [np.sin(theta),  np.cos(theta)]])
-
-    return np.einsum('ji, mni -> jmn', rotation_matrix, np.dstack([xx, yy]))
-
-def make_mesh(center, theta, length, width, res_factor=1):
-    '''
-    Generate a meshgrid with the specified parameters.
-
-    Parameters
-    ----------
-    center : 2-tuple, float
-        Coordinates of the center of the grid.
-    theta : float
-        Angle of the line, in degrees, clockwise from the x-axis.
-    length : int
-        Length, in pixels.
-    width : int
-        Width, in pixels.
-    res_factor : int
-        Resolution factor. Number of interpolated points per pixel.
-
-    Returns
-    -------
-    2D np.array, 2D np.array
-        X, Y. xy-coords for each point in the generated meshgrid.
-
-    '''
     cx, cy = center
     theta = np.radians(theta)
+    num_pts = length * resolution
 
-    # Number of points to interpolate:
-    x_pts = int(np.round(res_factor * length))
-    y_pts = int(np.round(res_factor * width))
+    x = np.linspace(-length/2, length/2, num_pts)
 
-    # Handle the edge case of a 1D grid.
-    #
-    # If width (or length) is set to 1px,
-    # linspace() will give a single point:
-    # -W/2 (or -L/2), and the 1D grid will
-    # be offset from the midline.
-    if x_pts > 1:
-        x = np.linspace(-length/2, length/2, x_pts)
-    else:
-        x = np.zeros(1, dtype=float)
+    X = x * np.cos(theta)
+    Y = x * np.sin(theta)
 
-    if y_pts > 1:
-        y = np.linspace(-width/2, width/2, y_pts)
-    else:
-        y = np.zeros(1, dtype=float)
-
-    # Generate a grid centered at the origin.
-    X, Y = make_rotated_meshgrid(x, y, theta)
-
-    # Shift it to the specified midpoint.
     return X + cx, Y + cy
+
+def make_lines(center, theta, length, resolution=1, width=1, w_res=1):
+
+    centers = make_line(center, theta + 90, width, w_res)
+    centers = np.array(centers).T
+
+    lines = [make_line(c, theta, length, resolution) for c in centers]    
+    lines = np.array(lines)
+
+    return lines
 
 def make_line_endpoints(center, theta, length):
     '''
@@ -106,15 +49,15 @@ def make_line_endpoints(center, theta, length):
     X = np.array((-length/2, length/2))
     Y = np.zeros(2)
 
-    X_rot = X * np.cos(theta) - Y * np.sin(theta)
-    Y_rot = X * np.sin(theta) - Y * np.cos(theta)
+    X_rot = X * np.cos(theta)
+    Y_rot = X * np.sin(theta)
 
     x1, x2 = center[0] + X_rot
     y1, y2 = center[1] + Y_rot
 
     return (x1, y1), (x2, y2)
 
-def interp_along_line(im, line, resolution):
+def find_profile(im, cx, cy, theta, length, resolution):
 
     ny, nx = im.shape
 
@@ -123,42 +66,23 @@ def interp_along_line(im, line, resolution):
 
     sp = RectBivariateSpline(y, x, im)
 
-    x1, x2, y1, y2 = line
+    X, Y = make_line((cx, cy), theta, length, resolution)
 
-    y = np.linspace(y1, y2, resolution)
-    x = np.linspace(x1, x2, resolution)
+    return sp.ev(Y, X)
 
-    return sp.ev(y, x)
+def make_kymograph(stack, cx, cy, theta, length, resolution):
 
-def find_profile(data, cx, cy, theta, length, resolution):
-
-    (x1, y1), (x2, y2) = make_line_endpoints((cx, cy), theta, length)
-    line = (x1, x2, y1, y2)
-
-    profile = interp_along_line(data, line, resolution)
-
-    return profile
-
-def make_kymograph(stack, line, resolution):
-    '''
-    STACK := an image stack
-    LINE := (x1, x2, y1, y2)
-    RESOLUTION := number of pixels to interpolate
-    '''
-    _, nx, ny = stack.shape
+    _, ny, nx = stack.shape
 
     y = np.arange(ny)
     x = np.arange(nx)
 
     splines = [RectBivariateSpline(y, x, frame) for frame in stack]
 
-    x1, x2, y1, y2 = line
+    X, Y = make_line((cx, cy), theta, length, resolution)
 
-    y = np.linspace(y1, y2, resolution)
-    x = np.linspace(x1, x2, resolution)
-
-    interpolated_lines = [sp.ev(y, x) for sp in splines]
+    interpolated_lines = [sp.ev(Y, X) for sp in splines]
 
     kymograph = np.array(interpolated_lines)
-    
+
     return kymograph
