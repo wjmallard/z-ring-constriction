@@ -12,21 +12,13 @@ except:
 import numpy as np
 import pandas as pd
 
-from aicsimageio.readers import ome_tiff_reader
-from aicsimageio.writers import ome_tiff_writer
 from pystackreg import StackReg
 
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+from util import load_stack
+from util import save_stack
 
 MARGIN = 2
 MIN_TRACK_LENGTH = 20
-
-def load_image(filename):
-    return ome_tiff_reader.TiffReader(filename, dim_order='TYX').data
-
-def save_image(filename, data):
-    ome_tiff_writer.OmeTiffWriter.save(data, filename, dim_order='TYX')
 
 def is_out_of_bounds(track, x_max, y_max):
     return ((track.x1 < 0).any() |
@@ -45,7 +37,7 @@ def isolate_z_rings(xml_file):
     tracks_file = basename + '.TrackSpots.tsv'
 
     tracks = pd.read_table(tracks_file)
-    im = load_image(tif_file)
+    im = load_stack(tif_file)
 
     radius = tracks.RADIUS.median()
 
@@ -139,7 +131,7 @@ def isolate_z_rings(xml_file):
 
         # Save to disk.
         tif_out = f'{basename}.{track_name}.tif'
-        save_image(tif_out, crop_reg)
+        save_stack(tif_out, crop_reg)
 
 
 for n, filename in enumerate(xml_files):

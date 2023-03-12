@@ -15,21 +15,12 @@ except:
     print(usage, file=sys.stderr)
     sys.exit(1)
 
-import pathlib
 import numpy as np
 
-from aicsimageio.readers import tiff_reader
-from aicsimageio.writers import ome_tiff_writer
 from pystackreg import StackReg
 
-def load_image(filename):
-    return tiff_reader.TiffReader(filename, dim_order='TYX').data
-
-def save_image(filename, data):
-    ome_tiff_writer.OmeTiffWriter.save(data, filename, dim_order='TYX')
-
-def file_exists(filename):
-    return pathlib.Path(filename).exists()
+from util import load_stack
+from util import save_stack
 
 def load_calibration(calib_npz):
     '''
@@ -86,7 +77,7 @@ for n, filename in enumerate(filenames):
     print(f'[{n+1}/{len(filenames)}] {filename}')
 
     # Process image.
-    im = load_image(filename)
+    im = load_stack(filename)
     im = flatten(im)
     im = register(im)
     im = cast_to_uint16(im)
@@ -94,4 +85,4 @@ for n, filename in enumerate(filenames):
     # Save to disk.
     basename = filename.rsplit('.', 1)[0]
     tif_out = f'{basename}.registered.tif'
-    save_image(tif_out, im)
+    save_stack(tif_out, im)

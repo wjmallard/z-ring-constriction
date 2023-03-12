@@ -16,8 +16,9 @@ except:
 
 import numpy as np
 from pathlib import Path
-from aicsimageio.readers import ome_tiff_reader
-from aicsimageio.writers import ome_tiff_writer
+
+from util import load_image
+from util import save_stack
 
 def process_images(directory):
     '''
@@ -66,7 +67,6 @@ def merge_timeseries_images(basedir, filename_pattern):
     files = [str(path) for path in paths]
 
     # Load images and merge into a tiff stack.
-    load_image = lambda f: ome_tiff_reader.TiffReader(f).data
     im = np.stack([load_image(f) for f in files])
 
     # Construct output filename.
@@ -76,7 +76,7 @@ def merge_timeseries_images(basedir, filename_pattern):
     outfile = basedir.parent / (base + stem)
 
     # Write to disk.
-    ome_tiff_writer.OmeTiffWriter.save(im, outfile, dim_order='TYX')
+    save_stack(outfile, im)
 
 for directory in directories:
     print(f'Processing: {directory}')

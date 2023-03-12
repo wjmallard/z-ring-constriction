@@ -12,83 +12,17 @@ except:
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
 
-from aicsimageio.readers import ome_tiff_reader
-from aicsimageio.writers import ome_tiff_writer
-from scipy.interpolate import RectBivariateSpline
+from util import load_stack
+from util import save_image
+from util import file_exists
 
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+from kymo import make_line_endpoints
+from kymo import make_kymograph
 
 KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
 KYMO_RESOLUTION = 100  # kymograph interpolation width, in pixels
 MAX_KYMO_DURATION = 100  # max time backwards from t_end
-
-def load_image(filename):
-    return ome_tiff_reader.TiffReader(filename, dim_order='TYX').data
-
-def save_image(filename, data):
-    ome_tiff_writer.OmeTiffWriter.save(data, filename, dim_order='YX')
-
-def file_exists(filename):
-    return os.path.isfile(filename)
-
-def make_line_endpoints(center, theta, length):
-    '''
-    Generate endpoint xy-coords of a line with the specified parameters.
-
-    Parameters
-    ----------
-    center : 2-tuple, float
-        Coordinates of the center of the line.
-    theta : float
-        Angle of the line, in degrees, clockwise from the x-axis.
-    length : float
-        Length, in pixels.
-
-    Returns
-    -------
-    (float, float), (float, float)
-        P1, P2. xy-coords for each end of the generated line.
-
-    '''
-    theta = np.radians(theta)
-
-    X = np.array((-length/2, length/2))
-    Y = np.zeros(2)
-
-    X_rot = X * np.cos(theta) - Y * np.sin(theta)
-    Y_rot = X * np.sin(theta) - Y * np.cos(theta)
-
-    x1, x2 = center[0] + X_rot
-    y1, y2 = center[1] + Y_rot
-
-    return (x1, y1), (x2, y2)
-
-def make_kymograph(stack, line, resolution):
-    '''
-    STACK := an image stack
-    LINE := (x1, x2, y1, y2)
-    RESOLUTION := number of pixels to interpolate
-    '''
-    _, nx, ny = stack.shape
-
-    y = np.arange(ny)
-    x = np.arange(nx)
-
-    splines = [RectBivariateSpline(y, x, frame) for frame in stack]
-
-    x1, x2, y1, y2 = line
-
-    y = np.linspace(y1, y2, resolution)
-    x = np.linspace(x1, x2, resolution)
-
-    interpolated_lines = [sp.ev(y, x) for sp in splines]
-
-    kymograph = np.array(interpolated_lines)
-
-    return kymograph
 
 def straighten_kymograph(kymograph, npz_file):
 
@@ -115,7 +49,7 @@ def generate_composite(df):
 
     for n, (_, row) in enumerate(df.iterrows()):
 
-        im = load_image(row.tif_file)
+        im = load_stack(row.tif_file)
 
         #
         # Generate kymograph.

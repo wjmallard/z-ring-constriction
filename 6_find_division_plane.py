@@ -12,13 +12,21 @@ except:
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
 
-from aicsimageio.readers import ome_tiff_reader
-from scipy.interpolate import UnivariateSpline
-from scipy.interpolate import RectBivariateSpline
 from scipy.optimize import least_squares
 from scipy.signal import gaussian
+
+from util import load_stack
+from util import file_exists
+from util import write_textfile
+
+from kymo import make_line_endpoints
+from kymo import find_profile
+
+from fwhm import find_FWHM_intercepts
+from fwhm import calc_FWHM
+from fwhm import calc_FWHM_silent
+from fwhm import FWHMError
 
 KERNEL_SIZE = 3  # Should be about 1/4 the feature size.
 KYMO_WIDTH = 12
@@ -27,81 +35,9 @@ MIN_FWHM_RATIO = 1.5
 
 DEBUG = False
 
-def load_image(filename):
-    return ome_tiff_reader.TiffReader(filename, dim_order='TYX').data
-
-def file_exists(filename):
-    return os.path.isfile(filename)
-
-def write_textfile(filename, msg):
-    with open(filename, 'w') as fid:
-        print(msg, file=fid)
-
-def make_line_endpoints(center, theta, length):
-    '''
-    Generate endpoint xy-coords of a line with the specified parameters.
-
-    Parameters
-    ----------
-    center : 2-tuple, float
-        Coordinates of the center of the line.
-    theta : float
-        Angle of the line, in degrees, clockwise from the x-axis.
-    length : float
-        Length, in pixels.
-
-    Returns
-    -------
-    (float, float), (float, float)
-        P1, P2. xy-coords for each end of the generated line.
-
-    '''
-    theta = np.radians(theta)
-    
-    X = np.array((-length/2, length/2))
-    Y = np.zeros(2)
-
-    X_rot = X * np.cos(theta) - Y * np.sin(theta)
-    Y_rot = X * np.sin(theta) - Y * np.cos(theta)
-
-    x1, x2 = center[0] + X_rot
-    y1, y2 = center[1] + Y_rot
-
-    return (x1, y1), (x2, y2)
-
-def interp_along_line(im, line, resolution):
-
-    ny, nx = im.shape
-
-    y = np.arange(ny)
-    x = np.arange(nx)
-
-    sp = RectBivariateSpline(y, x, im)
-
-    x1, x2, y1, y2 = line
-
-    y = np.linspace(y1, y2, resolution)
-    x = np.linspace(x1, x2, resolution)
-
-    return sp.ev(y, x)
-
-def find_profile(data, cx, cy, theta, length, resolution):
-
-    (x1, y1), (x2, y2) = make_line_endpoints((cx, cy), theta, length)
-    line = (x1, x2, y1, y2)
-
-    profile = interp_along_line(data, line, resolution)
-
-    return profile
-
-def gaussian_kernel(width, stdev):
-    '''
-    Generate a 2D Gaussian kernel.
-    '''
-    kernel_1D = gaussian(width, std=stdev)
-    kernel_2D = np.outer(kernel_1D, kernel_1D)
-    return kernel_2D
-
+'''
+First round of ring position optimization:
+'''
 def find_centroid(data):
     '''
     Find the centroid of a 2D distribution.
@@ -116,60 +52,9 @@ def find_centroid(data):
 
     return cy, cx
 
-def find_roots_around_peak(roots, peak_loc):
-    
-    s = roots - peak_loc
-    i = np.where(np.sign(s[:1]) != np.sign(s[1:]))[0][0]
-
-    r1 = roots[i]
-    r2 = roots[i+1]
-    
-    return r1, r2
-
-class FWHMError(Exception):
-    def __init__(self, msg):
-        super().__init__(msg)
-
-def find_FWHM_intercepts(signal):
-
-    peak_loc = np.argmax(signal)
-    half_max = np.max(signal) / 2
-    
-    x = np.arange(len(signal))
-    y = signal - half_max
-
-    spline = UnivariateSpline(x, y, s=0)
-    roots = spline.roots()
-
-    if len(roots) == 2:
-        r1, r2 = roots
-    elif len(roots) > 2:
-        if peak_loc < roots.min() or peak_loc > roots.max():
-            raise FWHMError('Max value does not occur between roots.')
-
-        if DEBUG:
-            print(f'Using root disambiguation: {peak_loc} in {roots}')
-        r1, r2 = find_roots_around_peak(roots, peak_loc)
-    else:
-        raise FWHMError('Did not find at least 2 roots in FWHM calculation.')
-
-    return r1, r2
-
-def calc_FWHM(signal):
-
-    r1, r2 = find_FWHM_intercepts(signal)
-
-    return r2 - r1
-
-def calc_FWHM_silent(signal):
-
-    try:
-        r1, r2 = find_FWHM_intercepts(signal)
-    except FWHMError:
-        return np.nan
-
-    return r2 - r1
-
+'''
+Second round of ring position optimization:
+'''
 def calc_FWHM_along_line(data, cx, cy, theta, length, resolution):
 
     profile = find_profile(data, cx, cy, theta, length, resolution)
@@ -195,6 +80,9 @@ def maximize_FWHM_vs_angle(data, cx, cy, theta0):
 
     return result
 
+'''
+Third round of ring position optimization:
+'''
 def integrate_along_line(data, cx, cy, theta, length, resolution, window=None):
 
     profile = find_profile(data, cx, cy, theta, length, resolution)
@@ -220,6 +108,9 @@ def maximize_signal_vs_position(data, cx0, cy0, theta):
 
     return result
 
+'''
+Main loop:
+'''
 def find_ring_position(tif_file):
 
     basename = tif_file[:-len('.tif')]
@@ -231,7 +122,7 @@ def find_ring_position(tif_file):
         print(' - Already processed. Skipping.')
         return
 
-    im = load_image(tif_file)
+    im = load_stack(tif_file)
     im_sum = im.sum(axis=0)
 
     '''
