@@ -25,38 +25,6 @@ def make_lines(center, theta, length, resolution=1, width=1, w_res=1):
 
     return lines
 
-def make_line_endpoints(center, theta, length):
-    '''
-    Generate endpoint xy-coords of a line with the specified parameters.
-
-    Parameters
-    ----------
-    center : 2-tuple, float
-        Coordinates of the center of the line.
-    theta : float
-        Angle of the line, in degrees, clockwise from the x-axis.
-    length : int
-        Length, in pixels.
-
-    Returns
-    -------
-    (float, float), (float, float)
-        P1, P2. xy-coords for each end of the generated line.
-
-    '''
-    theta = np.radians(theta)
-
-    X = np.array((-length/2, length/2))
-    Y = np.zeros(2)
-
-    X_rot = X * np.cos(theta)
-    Y_rot = X * np.sin(theta)
-
-    x1, x2 = center[0] + X_rot
-    y1, y2 = center[1] + Y_rot
-
-    return (x1, y1), (x2, y2)
-
 def find_profile(im, cx, cy, theta, length, resolution):
 
     ny, nx = im.shape
@@ -84,5 +52,23 @@ def make_kymograph(stack, cx, cy, theta, length, resolution):
     interpolated_lines = [sp.ev(Y, X) for sp in splines]
 
     kymograph = np.array(interpolated_lines)
+
+    return kymograph
+
+def make_kymograph_grid(stack, cx, cy, theta, length, resolution, width, w_res=1):
+
+    _, ny, nx = stack.shape
+
+    y = np.arange(ny)
+    x = np.arange(nx)
+
+    splines = [RectBivariateSpline(y, x, frame) for frame in stack]
+
+    XY = make_lines((cx, cy), theta, length, resolution, width, w_res)
+
+    interpolated_lines = [[sp.ev(y, x) for sp in splines] for (x, y) in XY]
+
+    kymograph = np.array(interpolated_lines)
+    kymograph = kymograph.mean(axis=0)
 
     return kymograph
