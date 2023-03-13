@@ -18,6 +18,7 @@ from util import save_image
 from util import file_exists
 
 from kymo import make_kymograph
+from kymo import make_kymograph_grid
 
 KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
 KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
@@ -42,7 +43,7 @@ def straighten_kymograph(kymograph, npz_file):
 
     return kymo_straight
 
-def generate_composite(df):
+def generate_constriction_composite(df):
 
     kymo_stack = np.zeros((len(df), MAX_KYMO_DURATION, KYMO_WIDTH * KYMO_RESOLUTION), dtype=float)
 
@@ -59,6 +60,36 @@ def generate_composite(df):
         # Straighten kymograph.
         #
         kymograph = straighten_kymograph(kymograph, row.ring_time_npz)
+
+        #
+        # Extract it, flip it, add it to the stack.
+        #
+        a = row.t_end
+        b = max(0, row.t_end - MAX_KYMO_DURATION)
+        kymograph = kymograph[a:b:-1]
+
+        #
+        # Add it to the stack.
+        #
+        t_max = min(kymograph.shape[0], MAX_KYMO_DURATION)
+        kymo_stack[n,:t_max,:] = kymograph
+
+    composite = kymo_stack.mean(axis=0)[::-1]
+
+    return composite
+
+def generate_condensation_composite(df, width, w_res):
+
+    kymo_stack = np.zeros((len(df), MAX_KYMO_DURATION, KYMO_WIDTH * KYMO_RESOLUTION), dtype=float)
+
+    for n, (_, row) in enumerate(df.iterrows()):
+
+        im = load_stack(row.tif_file)
+
+        #
+        # Generate kymograph.
+        #
+        kymograph = make_kymograph_grid(im, row.cx, row.cy, row.theta, KYMO_WIDTH, KYMO_RESOLUTION, width, w_res)
 
         #
         # Extract it, flip it, add it to the stack.
@@ -199,8 +230,9 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
     print(f'Processing: {basename}')
     print(f' - {len(df)} images from {df.iloc[0].num_fields} fields')
 
-    print(' - Generating composite.')
-    composite = generate_composite(df)
+    # Generate ring constriction kymograph.
+    print(' - Generate composite ring constriction kymograph.')
+    composite = generate_constriction_composite(df)
 
     print(' - Writing to disk.')
     out_file = df.iloc[0].basename + '.composite.tif'
@@ -208,6 +240,18 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
 
     out_file = df.iloc[0].basename + '.composite.tsv'
     write_metadata_tsv(out_file, df)
+
+    # Generate ring condensation kymograph.
+    df.theta += 90
+
+    print(' - Generating composite ring condensation kymograph.')
+    width = 8
+    w_res = 2
+    composite = generate_condensation_composite(df, width, w_res)
+
+    print(' - Writing to disk.')
+    out_file = df.iloc[0].basename + '.composite_90deg.tif'
+    save_image(out_file, composite)
 
 print()
 print('Composite complete.')
