@@ -203,6 +203,7 @@ def compile_track_info(xml_files):
     df = df.reset_index(drop=True)
 
     df['num_fields'] = df.groupby(['basename', 'replicate']).field.transform(lambda s: s.nunique())
+    df['t_end_absolute'] = df.track_start + df.t_end
 
     print(f'Found {len(df)} images in total.')
     print()
@@ -247,6 +248,12 @@ def write_metadata_tsv(outfile, df):
 #
 experiments = compile_track_info(xml_files)
 
+# t_min, t_max = 200, 300
+# experiments = experiments[experiments.t_end_absolute > t_min]
+# experiments = experiments[experiments.t_end_absolute <= t_max]
+# subset = f'.{t_min}_to_{t_max}'
+subset = ''
+
 for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
 
     print(f'Processing: {basename}')
@@ -257,13 +264,13 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
     composite = generate_constriction_composite(df)
 
     print(' - Writing to disk.')
-    out_file = df.iloc[0].basename + '.composite.tif'
+    out_file = df.iloc[0].basename + subset + '.composite.tif'
     save_image(out_file, composite)
 
-    out_file = df.iloc[0].basename + '.composite.png'
+    out_file = df.iloc[0].basename + subset + '.composite.png'
     save_png(out_file, composite, df)
 
-    out_file = df.iloc[0].basename + '.composite.tsv'
+    out_file = df.iloc[0].basename + subset + '.composite.tsv'
     write_metadata_tsv(out_file, df)
 
     # Generate ring condensation kymograph.
@@ -275,10 +282,10 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
     composite = generate_condensation_composite(df, width, w_res)
 
     print(' - Writing to disk.')
-    out_file = df.iloc[0].basename + '.composite_90deg.tif'
+    out_file = df.iloc[0].basename + subset + '.composite_90deg.tif'
     save_image(out_file, composite)
 
-    out_file = df.iloc[0].basename + '.composite_90deg.png'
+    out_file = df.iloc[0].basename + subset + '.composite_90deg.png'
     save_png(out_file, composite, df)
 
 print()
