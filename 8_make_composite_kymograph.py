@@ -209,6 +209,28 @@ def compile_track_info(xml_files):
 
     return df
 
+def save_png(outfile, im, df):
+
+    num_images = len(df)
+    num_fields = df.iloc[0].num_fields
+
+    plt.close('all')
+
+    fig = plt.figure(frameon=False)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.axis('off')
+
+    ax.imshow(composite)
+
+    msg = f'N={num_images}'
+    ax.text(.01, .01, msg,
+            color='white',
+            horizontalalignment='left',
+            verticalalignment='bottom',
+            transform=ax.transAxes)
+
+    fig.canvas.print_png(outfile)
+
 def write_metadata_tsv(outfile, df):
 
     num_images = len(df)
@@ -238,6 +260,9 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
     out_file = df.iloc[0].basename + '.composite.tif'
     save_image(out_file, composite)
 
+    out_file = df.iloc[0].basename + '.composite.png'
+    save_png(out_file, composite, df)
+
     out_file = df.iloc[0].basename + '.composite.tsv'
     write_metadata_tsv(out_file, df)
 
@@ -252,6 +277,9 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
     print(' - Writing to disk.')
     out_file = df.iloc[0].basename + '.composite_90deg.tif'
     save_image(out_file, composite)
+
+    out_file = df.iloc[0].basename + '.composite_90deg.png'
+    save_png(out_file, composite, df)
 
 print()
 print('Composite complete.')
