@@ -220,7 +220,7 @@ def save_png(outfile, im, df):
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis('off')
 
-    ax.imshow(composite)
+    ax.imshow(composite, cmap='Greys_r')
 
     msg = f'N={num_images}'
     ax.text(.01, .01, msg,
