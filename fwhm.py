@@ -61,17 +61,14 @@ def find_primary_peak(signal, half_max=None):
     spline = UnivariateSpline(x, y)
     roots = spline.roots()
 
-    if len(roots) == 2:
-        r1, r2 = roots
-    elif len(roots) > 2:
-        if peak_loc < roots.min() or peak_loc > roots.max():
-            raise FWHMError('Max value does not occur between roots.')
+    #
+    # Select the outer-most intercepts.
+    #
+    r1 = roots.min()
+    r2 = roots.max()
 
-        if DEBUG:
-            print(f'Using root disambiguation: {peak_loc} in {roots}')
-        r1, r2 = find_roots_around_peak(roots, peak_loc)
-    else:
-        return [np.nan] * 7
+    if peak_loc < r1 or peak_loc > r2:
+        raise FWHMError('Max value does not occur between roots.')
 
     #
     # Find FWHM location, width, and area.
