@@ -18,6 +18,7 @@ from scipy.interpolate import UnivariateSpline
 
 from util import load_stack
 from util import file_exists
+from util import write_textfile
 from util import smooth
 from util import stretch
 from util import find_longest_run
@@ -104,12 +105,13 @@ def find_ring_timing(tif_file, track_start):
 
     basename = tif_file[:-len('.tif')]
     div_file = f'{basename}.ring_position.tsv'
-    out_file = f'{basename}.ring_timing.tsv'
+    tsv_file = f'{basename}.ring_timing.tsv'
     npz_file = f'{basename}.ring_timing.npz'
     png_file = f'{basename}.ring_timing.png'
+    out_file = f'{basename}.ring_timing.out'
 
     if file_exists(out_file):
-        print(' - Division parameters file already exists. Skipping.')
+        print(' - Already processed. Skipping.')
         return
 
     if not file_exists(div_file):
@@ -137,7 +139,7 @@ def find_ring_timing(tif_file, track_start):
     except Exception as ex:
         print(' - Failed.')
         print(f' - Reason: {ex}')
-        with open(f'{basename}.ring_timing.error', 'w') as fid:
+        with open(out_file, 'w') as fid:
             print(ex, file=fid)
             print(file=fid)
             print(traceback.format_exc(), file=fid)
@@ -162,13 +164,14 @@ def find_ring_timing(tif_file, track_start):
     except Exception as ex:
         print(' - Failed.')
         print(f' - Reason: {ex}')
-        with open(f'{basename}.ring_timing.error', 'w') as fid:
+        with open(out_file, 'w') as fid:
             print(ex, file=fid)
             print(file=fid)
             print(traceback.format_exc(), file=fid)
         return
 
     print(' - Success.')
+    write_textfile(out_file, 'Success.')
 
     # Save to disk.
     df = pd.DataFrame({
@@ -176,7 +179,7 @@ def find_ring_timing(tif_file, track_start):
         't_end': [t_end],
         'track_start': [track_start],
     })
-    df.to_csv(out_file, sep='\t', index=None)
+    df.to_csv(tsv_file, sep='\t', index=None)
 
     '''
     Generate QC plots.
