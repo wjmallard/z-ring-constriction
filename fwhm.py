@@ -53,13 +53,47 @@ def find_primary_peak(signal, half_max=None):
     peak_loc, peak_height = peaks[0]
 
     #
+    # Find peak boundaries.
+    #
+    r1, r2 = find_FWHM_intercepts(signal, peak_loc, peak_height / 2)
+
+    #
+    # Find peak location, width, and area.
+    #
+    fwhm_loc = np.mean((r1, r2))
+    fwhm_width = r2 - r1
+
+    y = signal
+    x = np.arange(len(y))
+
+    spline = UnivariateSpline(x, y, s=0)
+    fwhm_area = spline.integral(r1, r2)
+
+    return fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2
+
+def find_FWHM_intercepts(signal, peak_loc=None, half_max=None):
+
+    if peak_loc is None:
+        peak_loc = np.argmax(signal)
+    if half_max is None:
+        half_max = np.max(signal) / 2
+
+    if peak_loc < 0 or peak_loc >= len(signal):
+        raise FWHMError('Received invalid peak_loc value.')
+    if np.max(signal) < half_max:
+        raise FWHMError('Received invalid half_max value.')
+
+    #
     # Find all intercepts of the half-max line.
     #
-    x = np.arange(len(signal))
     y = signal - half_max
+    x = np.arange(len(y))
 
-    spline = UnivariateSpline(x, y)
+    spline = UnivariateSpline(x, y, s=0)
     roots = spline.roots()
+
+    if len(roots) < 2:
+        raise FWHMError('Did not find at least 2 roots in FWHM calculation.')
 
     #
     # Select the outer-most intercepts.
@@ -69,40 +103,6 @@ def find_primary_peak(signal, half_max=None):
 
     if peak_loc < r1 or peak_loc > r2:
         raise FWHMError('Max value does not occur between roots.')
-
-    #
-    # Find FWHM location, width, and area.
-    #
-    fwhm_loc = np.mean((r1, r2))
-    fwhm_width = r2 - r1
-
-    spline = UnivariateSpline(x, signal)
-    fwhm_area = spline.integral(r1, r2)
-
-    return fwhm_loc, fwhm_width, fwhm_area, peak_loc, peak_height, r1, r2
-
-def find_FWHM_intercepts(signal):
-
-    peak_loc = np.argmax(signal)
-    half_max = np.max(signal) / 2
-    
-    x = np.arange(len(signal))
-    y = signal - half_max
-
-    spline = UnivariateSpline(x, y, s=0)
-    roots = spline.roots()
-
-    if len(roots) == 2:
-        r1, r2 = roots
-    elif len(roots) > 2:
-        if peak_loc < roots.min() or peak_loc > roots.max():
-            raise FWHMError('Max value does not occur between roots.')
-
-        if DEBUG:
-            print(f'Using root disambiguation: {peak_loc} in {roots}')
-        r1, r2 = find_roots_around_peak(roots, peak_loc)
-    else:
-        raise FWHMError('Did not find at least 2 roots in FWHM calculation.')
 
     return r1, r2
 
