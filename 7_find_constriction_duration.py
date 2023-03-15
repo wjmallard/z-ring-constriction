@@ -33,8 +33,6 @@ KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
 MIN_CONSTRICTION_TIME = 15  # min ring constriction duration
 MIN_WIDTH_REBOUND = 5  # Min width increase after constriction, out of KYMO_WIDTH * KYMO_RESOLUTION.
 
-DEBUG = False
-
 class ConstrictionError(Exception):
     def __init__(self, msg):
         super().__init__(msg)

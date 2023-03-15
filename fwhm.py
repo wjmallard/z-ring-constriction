@@ -3,8 +3,6 @@ import numpy as np
 from scipy.interpolate import UnivariateSpline
 from scipy.signal import find_peaks
 
-DEBUG = False
-
 class FWHMError(Exception):
     def __init__(self, msg):
         super().__init__(msg)
