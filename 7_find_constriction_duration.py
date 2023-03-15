@@ -32,6 +32,7 @@ KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
 KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
 MIN_CONSTRICTION_TIME = 15  # min ring constriction duration
 MIN_WIDTH_REBOUND = 5  # Min width increase after constriction, out of KYMO_WIDTH * KYMO_RESOLUTION.
+START_THRESHOLD = .95  # Fraction of max ring width that defines t_start
 
 class ConstrictionError(Exception):
     def __init__(self, msg):
@@ -39,6 +40,8 @@ class ConstrictionError(Exception):
 
 def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
 
+    #
+    # Find t_end, and one approximation of t_start.
     #
     # Find the longest region of decreasing ring width.
     #
@@ -49,8 +52,29 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
     deriv = spline.derivative()
 
     neg_slope = deriv(x) < 0
-    t_start, run_len = find_longest_run(neg_slope)
-    t_end = t_start + run_len
+    t_start_v1, run_len = find_longest_run(neg_slope)
+    t_end = t_start_v1 + run_len
+
+    #
+    # Find another approximation of t_start.
+    #
+    # Find the earliest point before t_end where width
+    # shrinks down to, eg, 95% of maximum.
+    #
+    w_min = y[t_end]
+
+    w_before_end = y[:t_end]
+    w_max = np.max(w_before_end)
+
+    w_start = w_max * START_THRESHOLD
+    t_start_v2 = np.where(w_before_end >= w_start)[0][-1]
+
+    #
+    # Find t_start.
+    #
+    # Take the latter of the two t_start estimates.
+    #
+    t_start = np.max((t_start_v1, t_start_v2))
 
     #
     # Apply sanity checks.
