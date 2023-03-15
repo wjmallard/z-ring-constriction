@@ -120,3 +120,16 @@ def calc_FWHM_silent(signal):
         return np.nan
 
     return r2 - r1
+
+def find_xval(signal, yval):
+
+    y = signal - yval
+    x = np.arange(len(y))
+
+    spline = UnivariateSpline(x, y, s=0)
+    roots = spline.roots()
+
+    if len(roots) > 1:
+        print('Warning: Found multiple roots. Returning the first one.')
+
+    return roots[0]
