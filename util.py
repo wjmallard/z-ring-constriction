@@ -26,13 +26,15 @@ def write_textfile(filename, msg):
     with open(filename, 'w') as fid:
         print(msg, file=fid)
 
-def moving_average(x, win):
-    return np.convolve(x, np.ones(win), 'valid') / win
+def smooth(signal, win=1):
+    '''
+    Smooth via moving average with the specified window size.
+    Pad the signal with the first and last smoothed values.
+    '''
+    out = np.convolve(signal, np.ones(win), 'same') / win
 
-def smooth(signal, smoothing=1):
-
-    out = np.zeros_like(signal)
-    out[smoothing-1:] = moving_average(signal, smoothing)
+    out[:win//2] = out[win//2]
+    out[-win//2:] = out[-win//2]
 
     return out
 
