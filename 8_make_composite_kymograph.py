@@ -221,7 +221,7 @@ def save_png(outfile, im, df):
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis('off')
 
-    ax.imshow(composite, cmap='Greys_r')
+    ax.imshow(im, cmap='Greys_r')
 
     msg = f'N={num_images}'
     ax.text(.01, .01, msg,
@@ -231,6 +231,48 @@ def save_png(outfile, im, df):
             transform=ax.transAxes)
 
     fig.canvas.print_png(outfile)
+
+def save_QC_plot(out_file, comp_cons, comp_cond, df):
+
+    # Configure plots.
+    fig, axes = plt.subplots(1, 3, squeeze=False)
+    fig.set_figheight(5 * axes.shape[0])
+    fig.set_figwidth(5 * axes.shape[1])
+
+    num_images = len(df)
+    msg = f'N={num_images}'
+
+    # Ring constriction kymograph:
+    ax = axes[0,0]
+    ax.imshow(comp_cons, cmap='Greys_r')
+    ax.text(.01, .01, msg,
+            color='white',
+            horizontalalignment='left',
+            verticalalignment='bottom',
+            transform=ax.transAxes)
+
+    # Ring condensation kymograph:
+    ax = axes[0,1]
+    ax.imshow(comp_cond, cmap='Greys_r')
+    ax.text(.01, .01, msg,
+            color='white',
+            horizontalalignment='left',
+            verticalalignment='bottom',
+            transform=ax.transAxes)
+
+    # Histogram of constriction end times:
+    ax = axes[0,2]
+    ax.hist(df.t_end_absolute,
+            range=(0, 300),
+            bins=15)
+    ax.set_xlim(0, 300)
+    ax.set_ylim(0, 100)
+    ax.set_ylabel('Count')
+    ax.set_xlabel('End of constriction')
+
+    # Save to disk.
+    fig.tight_layout()
+    fig.canvas.print_png(out_file)
 
 def write_metadata_tsv(outfile, df):
 
@@ -248,6 +290,8 @@ def write_metadata_tsv(outfile, df):
 #
 experiments = compile_track_info(xml_files)
 
+# t_min, t_max = 0, 100
+# t_min, t_max = 100, 200
 # t_min, t_max = 200, 300
 # experiments = experiments[experiments.t_end_absolute > t_min]
 # experiments = experiments[experiments.t_end_absolute <= t_max]
@@ -261,14 +305,14 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
 
     # Generate ring constriction kymograph.
     print(' - Generate composite ring constriction kymograph.')
-    composite = generate_constriction_composite(df)
+    comp_cons = generate_constriction_composite(df)
 
     print(' - Writing to disk.')
-    out_file = df.iloc[0].basename + subset + '.composite.tif'
-    save_image(out_file, composite)
+    out_file = df.iloc[0].basename + subset + '.composite_constriction.tif'
+    save_image(out_file, comp_cons)
 
-    out_file = df.iloc[0].basename + subset + '.composite.png'
-    save_png(out_file, composite, df)
+    out_file = df.iloc[0].basename + subset + '.composite_constriction.png'
+    save_png(out_file, comp_cons, df)
 
     out_file = df.iloc[0].basename + subset + '.composite.tsv'
     write_metadata_tsv(out_file, df)
@@ -279,14 +323,18 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
     print(' - Generating composite ring condensation kymograph.')
     width = 8
     w_res = 2
-    composite = generate_condensation_composite(df, width, w_res)
+    comp_cond = generate_condensation_composite(df, width, w_res)
 
     print(' - Writing to disk.')
-    out_file = df.iloc[0].basename + subset + '.composite_90deg.tif'
-    save_image(out_file, composite)
+    out_file = df.iloc[0].basename + subset + '.composite_condensation.tif'
+    save_image(out_file, comp_cond)
 
-    out_file = df.iloc[0].basename + subset + '.composite_90deg.png'
-    save_png(out_file, composite, df)
+    out_file = df.iloc[0].basename + subset + '.composite_condensation.png'
+    save_png(out_file, comp_cond, df)
+
+    # Generate QC plot.
+    out_file = df.iloc[0].basename + subset + '.composite_QC.png'
+    save_QC_plot(out_file, comp_cons, comp_cond, df)
 
 print()
 print('Composite complete.')
