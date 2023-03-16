@@ -188,6 +188,12 @@ def find_ring_position(tif_file):
     fwhm_0deg = calc_FWHM_silent(profile_0deg)
     fwhm_90deg = calc_FWHM_silent(profile_90deg)
 
+    if profile_0deg.min() > profile_90deg.min():
+        print(' - Rejected. Shoulders too high.')
+        print(f' - Reason: min(0deg) > min(90deg) -- {profile_0deg.min():.2f} > {profile_90deg.min():.2f}')
+        write_textfile(out_file, 'Rejected.')
+        rejected = True
+
     if (fwhm_0deg / fwhm_90deg < MIN_FWHM_RATIO) or np.isnan(fwhm_0deg) or np.isnan(fwhm_90deg):
         print(' - Rejected. FWHM ratio indicates poor fit.')
         print(f' - Reason: {fwhm_0deg / fwhm_90deg:.2f} < {MIN_FWHM_RATIO}')
