@@ -2,9 +2,12 @@
 import numpy as np
 from aicsimageio import AICSImage
 
-path_dark = '2023.02.18 Fluorescein flats and darks 20pct 100ms/Dark_w1[None].tif'
-path_flat = '2023.02.18 Fluorescein flats and darks 20pct 100ms/Flat_w1488 laser 20.tif'
-path_out = 'Flat_field_calibration_data.npz'
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+path_dark = '2023.03.29 Fluorescein flats and darks 60x 20pct 100ms/Dark.tif'
+path_flat = '2023.03.29 Fluorescein flats and darks 60x 20pct 100ms/Flat.tif'
+path_out = '2023.03.xx Flat field calibration data 60x.npz'
 
 dark = AICSImage(path_dark)
 flat = AICSImage(path_flat)
