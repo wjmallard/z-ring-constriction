@@ -21,6 +21,7 @@ from pystackreg import StackReg
 
 from util import load_stack
 from util import save_stack
+from util import file_exists
 
 def load_calibration(calib_npz):
     '''
@@ -76,6 +77,13 @@ for n, filename in enumerate(filenames):
 
     print(f'[{n+1}/{len(filenames)}] {filename}')
 
+    basename = filename.rsplit('.', 1)[0]
+    tif_out = f'{basename}.registered.tif'
+
+    if file_exists(tif_out):
+        print('   - Already registered. Skipping.')
+        continue
+
     # Process image.
     im = load_stack(filename)
     im = flatten(im)
@@ -83,6 +91,4 @@ for n, filename in enumerate(filenames):
     im = cast_to_uint16(im)
     
     # Save to disk.
-    basename = filename.rsplit('.', 1)[0]
-    tif_out = f'{basename}.registered.tif'
     save_stack(tif_out, im)
