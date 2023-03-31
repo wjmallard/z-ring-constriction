@@ -22,6 +22,9 @@ def save_image(filename, data):
 def file_exists(filename):
     return os.path.isfile(filename)
 
+def dir_exists(filename):
+    return os.path.isdir(filename)
+
 def write_textfile(filename, msg):
     with open(filename, 'w') as fid:
         print(msg, file=fid)
