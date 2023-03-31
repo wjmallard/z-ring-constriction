@@ -68,9 +68,9 @@ def generate_file_list(directory):
 
     return df
 
-for directory in directories:
+for n, directory in enumerate(directories):
 
-    print(f'Processing: {directory}')
+    print(f'[{n+1}/{len(directories)}] {directory}')
 
     if not dir_exists(directory):
         print(' - Not a directory. Skipping.')
