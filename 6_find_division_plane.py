@@ -28,10 +28,10 @@ from fwhm import calc_FWHM
 from fwhm import calc_FWHM_silent
 from fwhm import FWHMError
 
-KERNEL_SIZE = 3  # Should be about 1/4 the feature size.
-KYMO_WIDTH = 12  # Length of kymograph line, in pixels.
+KERNEL_SIZE = np.inf  # Should be about 1/4 the feature size.
+KYMO_WIDTH = 8  # Length of kymograph line, in pixels.
 KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
-MIN_FWHM_RATIO = 1.5
+MIN_FWHM_RATIO = 1.2
 
 DEBUG = False
 
