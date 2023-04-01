@@ -18,7 +18,16 @@ from util import load_stack
 from util import save_stack
 
 MARGIN = 2
-MIN_TRACK_LENGTH = 20
+MIN_TRACK_LENGTH = 8
+
+def is_too_short(track):
+    return len(track) < MIN_TRACK_LENGTH
+
+def is_truncated_at_start(track):
+    return track.FRAME.min() <= 0
+
+def is_truncated_at_end(track, t_max):
+    return track.FRAME.max() >= t_max
 
 def is_out_of_bounds(track, x_max, y_max):
     return ((track.x1 < 0).any() |
@@ -90,7 +99,7 @@ def isolate_z_rings(xml_file):
     tracks['y1'] = (tracks.POSITION_Y - dXY).astype(int)
     tracks['y2'] = (tracks.POSITION_Y + dXY).astype(int)
 
-    t_max, y_max, x_max = im.shape
+    t_max, y_max, x_max = np.array(im.shape) - 1
 
     #%%
     #
@@ -100,8 +109,14 @@ def isolate_z_rings(xml_file):
 
     for (_, track_name), track in tracks.groupby(['TRACK_ID', 'Track_Name']):
 
-        if len(track) < MIN_TRACK_LENGTH:
-            print(f' - {track_name}: Skipping: too short.')
+        if is_too_short(track):
+           print(f' - {track_name}: Skipping: too short.')
+           continue
+        if is_truncated_at_start(track):
+            print(f' - {track_name}: Skipping: truncated by start of timelapse.')
+            continue
+        if is_truncated_at_end(track, t_max):
+            print(f' - {track_name}: Skipping: truncated by end of timelapse.')
             continue
         elif is_out_of_bounds(track, x_max, y_max):
             print(f' - {track_name}: Skipping: too close to edge.')
