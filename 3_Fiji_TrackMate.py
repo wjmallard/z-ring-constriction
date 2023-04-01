@@ -23,27 +23,51 @@ from glob import glob
 
 INPUT_PATTERN = '*.registered.tif'
 
+# Note: The TrackMate GUI asks for *diameter* in pixels.
+#       The TrackMate API asks for *radius* in pixels.
+#
+# Spot radius:
+#  - 100x: 6 pixels
+#  - 60x: 4 pixels
+#
+# Quality threshold:
+#  - 100x: 20
+#  - 60x: 40
 DetectorSettings = {
     'TARGET_CHANNEL': 1,
-    'RADIUS': 6.,
-    'THRESHOLD': 20.,
+    'RADIUS': 4.,
+    'THRESHOLD': 40.,
     'DO_MEDIAN_FILTERING': False,
     'DO_SUBPIXEL_LOCALIZATION': False,
 }
 
+# Note: The TrackMate GUI asks for *diameter* in pixels.
+#       The TrackMate API asks for *radius* in pixels.
+#
+# Linking distance:
+#  - 100x: 2 pixels
+#  - 60x: 2 pixels
+#
+# Search radius:
+#  - 100x: 2 pixels
+#  - 60x: 2 pixels
+#
+# Frame gap:
+#  - 100x: 2
+#  - 60x: 1
 TrackerSettings = {
     'LINKING_MAX_DISTANCE': 2.,
     'KALMAN_SEARCH_RADIUS': 2.,
-    'MAX_FRAME_GAP': 2,
+    'MAX_FRAME_GAP': 1,
 }
 
-SpotQualityThreshold = 20.
+SpotQualityThreshold = 40.
 
 SpotFilters = {
 }
 
 TrackFilters = {
-    'NUMBER_SPOTS': 10,
+    'NUMBER_SPOTS': 8,
 }
 
 def select_stacks():
