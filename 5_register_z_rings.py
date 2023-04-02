@@ -116,8 +116,8 @@ def isolate_z_rings(xml_file):
             continue
 
         if is_too_short(track):
-           print(f' - {track_name}: Skipping: too short.')
-           continue
+            print(f' - {track_name}: Skipping: too short.')
+            continue
         if is_truncated_at_start(track):
             print(f' - {track_name}: Skipping: truncated by start of timelapse.')
             continue
