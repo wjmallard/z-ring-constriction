@@ -53,7 +53,8 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
     deriv = spline.derivative()
 
     neg_slope = deriv(x) < 0
-    t_start_v1, run_len = find_longest_run(neg_slope)
+    trim = int(np.ceil(SMOOTHING / 2))
+    t_start_v1, run_len = find_longest_run(neg_slope[:-trim])
     t_end = t_start_v1 + run_len
 
     #
