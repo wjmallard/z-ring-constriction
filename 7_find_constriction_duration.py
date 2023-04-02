@@ -29,9 +29,9 @@ from kymo import make_kymograph
 from fwhm import find_kymograph_peaks
 
 SMOOTHING = 5  # rolling average window size
-KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
+KYMO_WIDTH = 12  # kymograph width on orig image, in pixels
 KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
-MIN_CONSTRICTION_TIME = 15  # min ring constriction duration
+MIN_CONSTRICTION_TIME = 8  # min ring constriction duration
 MIN_WIDTH_REBOUND = 5  # Min width increase after constriction, out of KYMO_WIDTH * KYMO_RESOLUTION.
 START_THRESHOLD = .95  # Fraction of max ring width that defines t_start
 
