@@ -16,6 +16,7 @@ from pystackreg import StackReg
 
 from util import load_stack
 from util import save_stack
+from util import file_exists
 
 MARGIN = 2
 MIN_TRACK_LENGTH = 8
@@ -109,6 +110,11 @@ def isolate_z_rings(xml_file):
 
     for (_, track_name), track in tracks.groupby(['TRACK_ID', 'Track_Name']):
 
+        tif_out = f'{basename}.{track_name}.tif'
+        if file_exists(tif_out):
+            print(f' - {track_name}: Skipping: already processed.')
+            continue
+
         if is_too_short(track):
            print(f' - {track_name}: Skipping: too short.')
            continue
@@ -145,7 +151,6 @@ def isolate_z_rings(xml_file):
         crop_reg = sr.transform_stack(crop, tmats=tmat)
 
         # Save to disk.
-        tif_out = f'{basename}.{track_name}.tif'
         save_stack(tif_out, crop_reg)
 
 
