@@ -76,7 +76,7 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
     #
     # Take the latter of the two t_start estimates.
     #
-    t_start = np.max((t_start_v1, t_start_v2))
+    t_start = max(t_start_v1, t_start_v2)
 
     #
     # Apply sanity checks.
