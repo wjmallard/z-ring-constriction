@@ -41,42 +41,30 @@ class ConstrictionError(Exception):
 
 def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
 
-    #
-    # Find t_end, and one approximation of t_start.
-    #
-    # Find the longest region of decreasing ring width.
-    #
-    y = smooth(fwhm_width, SMOOTHING)
-    x = np.arange(len(fwhm_width))
-
-    spline = UnivariateSpline(x, y)
-    deriv = spline.derivative()
-
-    neg_slope = deriv(x) < 0
-    trim = int(np.ceil(SMOOTHING / 2))
-    t_start_v1, run_len = find_longest_run(neg_slope[:-trim])
-    t_end = t_start_v1 + run_len
+    height = smooth(peak_height, SMOOTHING)
+    width = smooth(fwhm_width, SMOOTHING)
 
     #
-    # Find another approximation of t_start.
+    # Find t_end.
     #
-    # Find the earliest point before t_end where width
-    # shrinks down to, eg, 95% of maximum.
-    #
-    w_min = y[t_end]
+    neg_slope = np.zeros_like(width)
+    neg_slope[1:] = np.diff(width) < 0.
 
-    w_before_end = y[:t_end]
-    w_max = np.max(w_before_end)
+    t_start_run, _ = find_longest_run(neg_slope)
 
-    w_start = w_max * START_THRESHOLD
-    t_start_v2 = np.where(w_before_end >= w_start)[0][-1]
+    t_max_height = t_start_run + np.argmax(height[t_start_run:])
+    t_min_width = t_max_height + np.argmin(width[t_max_height:])
+
+    t_end = t_min_width
 
     #
     # Find t_start.
     #
-    # Take the latter of the two t_start estimates.
+    # Find the earliest point before t_end where width
+    # shrinks down to, eg, 95% of maximum.
     #
-    t_start = max(t_start_v1, t_start_v2)
+    w_start = width[:t_start_run].mean() * START_THRESHOLD
+    t_start = np.where(width[:t_end] >= w_start)[0][-1]
 
     #
     # Apply sanity checks.
@@ -96,9 +84,6 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
 
     if np.argmax(fwhm_area) > t_end:
         raise ConstrictionError('Ring constriction ends before total ring intensity peaks.')
-
-    if np.argmax(peak_height) > t_end:
-        raise ConstrictionError('Ring constriction ends before maximum ring intensity peaks.')
 
     return t_start, t_end
 
