@@ -20,9 +20,13 @@ from util import file_exists
 from kymo import make_kymograph
 from kymo import make_kymograph_grid
 
-KYMO_WIDTH = 16  # kymograph width on orig image, in pixels
+KYMO_WIDTH = 12  # kymograph width on orig image, in pixels
 KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
-MAX_KYMO_DURATION = 100  # max time backwards from t_end
+MAX_KYMO_DURATION = 40  # max time backwards from t_end
+
+HISTOGRAM_BINS = 15
+HISTOGRAM_XMAX = 150
+HISTOGRAM_YMAX = 100
 
 def straighten_kymograph(kymograph, npz_file):
 
@@ -263,12 +267,12 @@ def save_QC_plot(out_file, comp_cons, comp_cond, df):
     # Histogram of constriction end times:
     ax = axes[0,2]
     ax.hist(df.t_end_absolute,
-            range=(0, 300),
-            bins=15)
-    ax.set_xlim(0, 300)
-    ax.set_ylim(0, 100)
-    ax.set_ylabel('Count')
+            range=(0, HISTOGRAM_XMAX),
+            bins=HISTOGRAM_BINS)
+    ax.set_xlim(0, HISTOGRAM_XMAX)
+    ax.set_ylim(0, HISTOGRAM_YMAX)
     ax.set_xlabel('End of constriction')
+    ax.set_ylabel('Count')
 
     # Save to disk.
     fig.tight_layout()
