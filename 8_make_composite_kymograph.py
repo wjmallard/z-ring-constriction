@@ -132,9 +132,11 @@ def load_track_info(xml_file):
     #
     # Skip tracks where finding the ring position or constriction time failed.
     #
-    df = df[df.ring_posn_tsv.apply(file_exists)]
-    df = df[df.ring_time_tsv.apply(file_exists)]
-    df = df[df.ring_time_npz.apply(file_exists)]
+    df['Success'] = True
+    df['Success'] &= df.ring_posn_tsv.apply(file_exists)
+    df['Success'] &= df.ring_time_tsv.apply(file_exists)
+    df['Success'] &= df.ring_time_npz.apply(file_exists)
+    df = df[df.Success]
     df = df.reset_index(drop=True)
 
     #
