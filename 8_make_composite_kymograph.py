@@ -296,11 +296,12 @@ def write_metadata_tsv(outfile, df):
 #
 experiments = compile_track_info(xml_files)
 
+t_min, t_max = 60, 120
 # t_min, t_max = 0, 100
 # t_min, t_max = 100, 200
 # t_min, t_max = 200, 300
-# experiments = experiments[experiments.t_end_absolute > t_min]
-# experiments = experiments[experiments.t_end_absolute <= t_max]
+experiments = experiments[experiments.t_end_absolute > t_min]
+experiments = experiments[experiments.t_end_absolute <= t_max]
 # subset = f'.{t_min}_to_{t_max}'
 subset = ''
 
