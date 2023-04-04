@@ -311,20 +311,25 @@ subset = ''
 for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
 
     print(f'Processing: {basename}')
-    print(f' - {len(df)} images from {df.iloc[0].num_fields} fields')
+
+    basename = df.iloc[0].basename + subset
+    num_rings = len(df)
+    num_fields = df.iloc[0].num_fields
+
+    print(f' - {num_rings} images from {num_fields} fields')
 
     # Generate ring constriction kymograph.
     print(' - Generate composite ring constriction kymograph.')
     comp_cons = generate_constriction_composite(df)
 
     print(' - Writing to disk.')
-    out_file = df.iloc[0].basename + subset + '.composite_constriction.tif'
+    out_file = basename + '.composite_constriction.tif'
     save_image(out_file, comp_cons)
 
-    out_file = df.iloc[0].basename + subset + '.composite_constriction.png'
+    out_file = basename + '.composite_constriction.png'
     save_png(out_file, comp_cons, df)
 
-    out_file = df.iloc[0].basename + subset + '.composite.tsv'
+    out_file = basename + '.composite.tsv'
     write_metadata_tsv(out_file, df)
 
     # Generate ring condensation kymograph.
@@ -334,14 +339,14 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
     comp_cond = generate_condensation_composite(df, CELL_WIDTH, CELL_WIDTH_RESOLUTION)
 
     print(' - Writing to disk.')
-    out_file = df.iloc[0].basename + subset + '.composite_condensation.tif'
+    out_file = basename + '.composite_condensation.tif'
     save_image(out_file, comp_cond)
 
-    out_file = df.iloc[0].basename + subset + '.composite_condensation.png'
+    out_file = basename + '.composite_condensation.png'
     save_png(out_file, comp_cond, df)
 
     # Generate QC plot.
-    out_file = df.iloc[0].basename + subset + '.composite_QC.png'
+    out_file = basename + '.composite_QC.png'
     save_QC_plot(out_file, comp_cons, comp_cond, df)
 
 print()
