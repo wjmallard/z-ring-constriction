@@ -22,7 +22,7 @@ from kymo import make_kymograph_grid
 
 KYMO_WIDTH = 12  # Length of line to interpolate along on orig image, in pixels
 KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
-CELL_WIDTH = 8  # Condensation kymo: Width of interpolation grid on orig image, in pixels
+CELL_WIDTH = 5  # Condensation kymo: Width of interpolation grid on orig image, in pixels
 CELL_WIDTH_RESOLUTION = 2  # Condensation kymo: Number of points to interpolate per pixel.
 MAX_KYMO_DURATION = 40  # max time backwards from t_end
 MIN_RINGS_PER_FIELD = 5  # Min number of rings for a field of view to be included
