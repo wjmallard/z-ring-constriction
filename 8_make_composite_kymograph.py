@@ -20,9 +20,12 @@ from util import file_exists
 from kymo import make_kymograph
 from kymo import make_kymograph_grid
 
-KYMO_WIDTH = 12  # kymograph width on orig image, in pixels
+KYMO_WIDTH = 12  # Length of line to interpolate along on orig image, in pixels
 KYMO_RESOLUTION = 8  # Number of points to interpolate per pixel.
+CELL_WIDTH = 8  # Condensation kymo: Width of interpolation grid on orig image, in pixels
+CELL_WIDTH_RESOLUTION = 2  # Condensation kymo: Number of points to interpolate per pixel.
 MAX_KYMO_DURATION = 40  # max time backwards from t_end
+MIN_RINGS_PER_FIELD = 5  # Min number of rings for a field of view to be included
 
 HISTOGRAM_BINS = 15
 HISTOGRAM_XMAX = 150
@@ -328,9 +331,7 @@ for (basename, replicate), df in experiments.groupby(['basename', 'replicate']):
     df.theta += 90
 
     print(' - Generating composite ring condensation kymograph.')
-    width = 8
-    w_res = 2
-    comp_cond = generate_condensation_composite(df, width, w_res)
+    comp_cond = generate_condensation_composite(df, CELL_WIDTH, CELL_WIDTH_RESOLUTION)
 
     print(' - Writing to disk.')
     out_file = df.iloc[0].basename + subset + '.composite_condensation.tif'
