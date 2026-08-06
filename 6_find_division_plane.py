@@ -37,7 +37,6 @@ from kymo import find_profile
 
 from fwhm import find_FWHM_intercepts
 from fwhm import calc_FWHM
-from fwhm import calc_FWHM_silent
 from fwhm import FWHMError
 
 KERNEL_SIZE = np.inf  # Should be about 1/4 the feature size.
@@ -197,8 +196,8 @@ def find_ring_position(tif_file):
     profile_0deg = find_profile(im_sum, cx2, cy2, theta1, KYMO_WIDTH, KYMO_RESOLUTION)
     profile_90deg = find_profile(im_sum, cx2, cy2, theta1 + 90, KYMO_WIDTH, KYMO_RESOLUTION)
 
-    fwhm_0deg = calc_FWHM_silent(profile_0deg)
-    fwhm_90deg = calc_FWHM_silent(profile_90deg)
+    fwhm_0deg = calc_FWHM(profile_0deg, errors='coerce')
+    fwhm_90deg = calc_FWHM(profile_90deg, errors='coerce')
 
     if profile_0deg.min() > profile_90deg.min():
         print(' - Rejected. Shoulders too high.')

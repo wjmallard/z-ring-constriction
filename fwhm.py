@@ -113,18 +113,18 @@ def find_FWHM_intercepts(signal, peak_loc=None, half_max=None):
 
     return r1, r2
 
-def calc_FWHM(signal):
+def calc_FWHM(signal, errors='raise'):
+    '''
+    Calculate the FWHM of a signal.
 
-    r1, r2 = find_FWHM_intercepts(signal)
-
-    return r2 - r1
-
-def calc_FWHM_silent(signal):
-
+    Raises FWHMError on failure; use errors='coerce' to return NaN instead.
+    '''
     try:
         r1, r2 = find_FWHM_intercepts(signal)
     except FWHMError:
-        return np.nan
+        if errors == 'coerce':
+            return np.nan
+        raise
 
     return r2 - r1
 
