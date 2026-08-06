@@ -85,7 +85,14 @@ def isolate_z_rings(xml_file):
     tracks = tracks.sort_values(['TRACK_ID', 'FRAME'])
     tracks = tracks.reset_index(drop=True)
 
-    tracks = tracks.interpolate()
+    # Only the positions are missing on the rows added above. Older pandas
+    # skipped the string column here; pandas 3.0 raises on it instead.
+    positions = [
+        'POSITION_X',
+        'POSITION_Y',
+        'POSITION_T',
+    ]
+    tracks[positions] = tracks[positions].interpolate()
 
     #%%
     #
