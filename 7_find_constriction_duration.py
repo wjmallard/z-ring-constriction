@@ -63,6 +63,10 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
     neg_slope = np.zeros_like(width)
     neg_slope[1:] = np.diff(width) < 0.
 
+    # Reject rings that never constrict.
+    if not neg_slope.any():
+        raise ConstrictionError('Ring width never decreases.')
+
     t_start_run, _ = find_longest_run(neg_slope)
 
     t_max_height = t_start_run + np.argmax(height[t_start_run:])
