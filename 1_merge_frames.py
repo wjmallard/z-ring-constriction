@@ -39,9 +39,9 @@ def generate_file_list(directory):
     paths = glob(directory + '/*.TIF')
 
     df = pd.DataFrame(paths, columns=['Path'])
-    df['Directory'] = df.Path.str.rsplit('/', 1).str[0]
-    df['Filename'] = df.Path.str.rsplit('/', 1).str[1]
-    df['Parent'] = df.Directory.str.rsplit('/', 1).str[0]
+    df['Directory'] = df.Path.str.rsplit('/', n=1).str[0]
+    df['Filename'] = df.Path.str.rsplit('/', n=1).str[1]
+    df['Parent'] = df.Directory.str.rsplit('/', n=1).str[0]
 
     df['Sample'] = df.Filename.apply(extract_sample)
     df['Field'] = 1
