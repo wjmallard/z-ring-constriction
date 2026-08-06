@@ -81,7 +81,12 @@ def find_constriction_start_and_end(fwhm_width, fwhm_area, peak_height):
     # shrinks down to, eg, 95% of maximum.
     #
     w_start = width[:t_start_run].mean() * START_THRESHOLD
-    t_start = np.where(width[:t_end] >= w_start)[0][-1]
+
+    candidates = np.where(width[:t_end] >= w_start)[0]
+    if not len(candidates):
+        raise ConstrictionError('Cannot measure pre-constriction ring width.')
+
+    t_start = candidates[-1]
 
     #
     # Apply sanity checks.
