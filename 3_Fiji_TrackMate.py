@@ -1,5 +1,15 @@
+#@ File (label="Input directory", style="directory") basedir
+
+# To set basedir:
+# - When run in the GUI, Fiji presents a directory chooser.
+# - When run headless, Fiji reads it from the command line.
+#
+#   ImageJ-macosx \
+#   --headless \
+#   --console \
+#   --run 3_Fiji_TrackMate.py 'basedir="/path/to/data"'
+
 from ij import IJ
-from ij.io import DirectoryChooser
 
 import java.io.File as File
 
@@ -72,14 +82,9 @@ TrackFilters = {
 
 def select_stacks():
     '''
-    Prompt user for a directory to process.
+    Find stacks to process in the input directory.
     '''
-    basedir = DirectoryChooser(None).getDirectory()
-    if basedir is None:
-        print 'No directory selected. Aborting.'
-        return []
-
-    pattern = os.path.join(basedir, INPUT_PATTERN)
+    pattern = os.path.join(str(basedir), INPUT_PATTERN)
     targets = glob(pattern)
 
     print 'Found %s images matching:' % len(targets)
