@@ -14,7 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from scipy.optimize import least_squares
-from scipy.signal import gaussian
+from scipy.signal.windows import gaussian
 
 from util import load_stack
 from util import file_exists
