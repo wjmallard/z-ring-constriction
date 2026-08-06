@@ -1,23 +1,25 @@
 import numpy as np
 import os
 
-from aicsimageio.readers import ome_tiff_reader
-from aicsimageio.writers import ome_tiff_writer
+from bioio import BioImage
+from bioio_tifffile import Reader as TiffReader
+from bioio_ome_tiff.writers import OmeTiffWriter
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 def load_stack(filename):
-    return ome_tiff_reader.TiffReader(filename, dim_order='TYX').data
+    return BioImage(filename).get_image_data('TYX')
 
 def save_stack(filename, data):
-    ome_tiff_writer.OmeTiffWriter.save(data, filename, dim_order='TYX')
+    OmeTiffWriter.save(data, filename, dim_order='TYX')
 
 def load_image(filename):
-    return ome_tiff_reader.TiffReader(filename, dim_order='YX').data
+    # Raw MetaMorph frames are plain TIFF, not OME-TIFF.
+    return BioImage(filename, reader=TiffReader).get_image_data('YX')
 
 def save_image(filename, data):
-    ome_tiff_writer.OmeTiffWriter.save(data, filename, dim_order='YX')
+    OmeTiffWriter.save(data, filename, dim_order='YX')
 
 def file_exists(filename):
     return os.path.isfile(filename)
