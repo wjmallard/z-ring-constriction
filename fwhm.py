@@ -48,6 +48,15 @@ def find_primary_peak(signal, half_max=None):
     peaks = list(zip(peak_locs, props['peak_heights']))
     peaks = sorted(peaks, key=lambda x: x[1], reverse=True)
 
+    #
+    # If no peaks are found, return a list of NaNs.
+    #
+    if not peaks:
+        return [np.nan] * 7
+
+    #
+    # Take the tallest peak.
+    #
     peak_loc, peak_height = peaks[0]
 
     #
