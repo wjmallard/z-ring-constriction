@@ -1,0 +1,20 @@
+[project]
+name = "live-cell-confocal"
+version = "0.1.0"
+description = "Z-ring constriction analysis from spinning-disk confocal timelapses"
+requires-python = ">=3.14"
+dependencies = [
+    "bioio",
+    # bioio-ome-tiff reads/writes the OME-TIFF stacks this pipeline produces;
+    # bioio-tifffile reads the plain (non-OME) MetaMorph .TIF frames going in.
+    "bioio-ome-tiff",
+    "bioio-tifffile",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "pystackreg",
+    "scipy",
+]
+
+[tool.uv]
+package = false
