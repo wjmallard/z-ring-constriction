@@ -1,11 +1,23 @@
 #!/usr/bin/env python
 import sys
 try:
-    xml_files = sys.argv[1:]
+    if sys.argv[1] == '--qc-plots':
+        SAVE_QC_PLOTS = True
+        xml_files = sys.argv[2:]
+    else:
+        SAVE_QC_PLOTS = False
+        xml_files = sys.argv[1:]
     assert xml_files
 except:
     script = sys.argv[0].split('/')[-1]
-    usage = f'''Usage: {script} TrackMate.xml'''
+    usage = f'''Usage: {script} [--qc-plots] TrackMate.xml
+
+    Use --qc-plots to write a diagnostic figure for each ring,
+    showing the fit and measurements behind each accept/reject
+    decision. Useful when tuning parameters.
+
+    Rejection reasons are recorded in the .out files.
+    '''
     print(usage, file=sys.stderr)
     sys.exit(1)
 
@@ -217,6 +229,9 @@ def find_ring_position(tif_file):
     '''
     Generate plots for QC.
     '''
+    if not SAVE_QC_PLOTS:
+        return
+
     plt.close('all')
 
     fig, axes = plt.subplots(1, 2)
